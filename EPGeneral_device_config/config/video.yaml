@@ -1,0 +1,11 @@
+image_topic: "/camera/image_raw"
+image_message_type: "sensor_msgs/Image"
+output_width: 640
+output_height: 480
+framerate: 30
+srt_bind_address: "0.0.0.0"
+srt_port: 9000
+srt_latency_ms: 120
+bitrate_kbps: 2000
+rotation_degrees: 0
+frame_timeout_seconds: 5.0

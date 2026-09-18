@@ -1,0 +1,116 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+import yaml
+
+from epgeneral_mqtav.config import ConfigError, load_config
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SHARED_CONFIG = ROOT.parent / "EPGeneral_device_config" / "config"
+MQTAV_CONFIG = SHARED_CONFIG / "epgeneral_mqtav.yaml"
+DEVICE_CONFIG = SHARED_CONFIG / "device.yaml"
+
+
+class ConfigTests(unittest.TestCase):
+    def write_config(self, content):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "config.yaml"
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_sample_configuration_loads_and_expands_topics(self):
+        config = load_config(MQTAV_CONFIG, DEVICE_CONFIG)
+        self.assertEqual(config.client_id, "mqtav-UAV_001")
+        self.assertEqual(config.topic("status"), "mqtav/UAV_001/status")
+        self.assertFalse(config.ros.mission.enabled)
+        self.assertIsNone(config.ros.connection)
+
+    def config_with_connection(self, connection):
+        content = yaml.safe_load(MQTAV_CONFIG.read_text(encoding="utf-8"))
+        content["ros"]["connection"] = connection
+        return load_config(self.write_config(yaml.safe_dump(content)), DEVICE_CONFIG)
+
+    def test_independent_connection_defaults_to_three_seconds(self):
+        config = self.config_with_connection({"topic": "/robot/heartbeat", "message_type": "std_msgs/Empty"})
+        self.assertEqual(config.ros.connection.topic, "/robot/heartbeat")
+        self.assertEqual(config.ros.connection.message_type, "std_msgs/Empty")
+        self.assertEqual(config.ros.connection.timeout_seconds, 3.0)
+        self.assertTrue(config.ros.connection.connected_on_message)
+        self.assertFalse(config.ros.state.connected_on_message)
+
+    def test_independent_connection_custom_timeout(self):
+        config = self.config_with_connection(
+            {"topic": "/robot/heartbeat", "message_type": "std_msgs/Empty", "timeout_seconds": 0.5}
+        )
+        self.assertEqual(config.ros.connection.timeout_seconds, 0.5)
+
+    def test_null_connection_preserves_legacy_configuration(self):
+        self.assertIsNone(self.config_with_connection(None).ros.connection)
+
+    def test_independent_connection_rejects_invalid_topic_and_message_type(self):
+        for connection, field in (
+            ({"message_type": "std_msgs/Empty"}, "topic"),
+            ({"topic": "robot/heartbeat", "message_type": "std_msgs/Empty"}, "topic"),
+            ({"topic": "/robot/heartbeat"}, "message_type"),
+            ({"topic": "/robot/heartbeat", "message_type": "Empty"}, "message_type"),
+        ):
+            with self.subTest(connection=connection):
+                with self.assertRaisesRegex(ConfigError, "ros.connection." + field):
+                    self.config_with_connection(connection)
+
+    def test_independent_connection_rejects_invalid_timeout(self):
+        for timeout in (True, 0, -1, 3601, "3", float("nan"), float("inf")):
+            with self.subTest(timeout=timeout):
+                with self.assertRaisesRegex(ConfigError, "ros.connection.timeout_seconds"):
+                    self.config_with_connection(
+                        {"topic": "/robot/heartbeat", "message_type": "std_msgs/Empty", "timeout_seconds": timeout}
+                    )
+
+    def test_invalid_ground_station_ip_is_rejected(self):
+        content = MQTAV_CONFIG.read_text(encoding="utf-8")
+        with self.assertRaisesRegex(ConfigError, "mqtt.ground_station_ip"):
+            load_config(self.write_config(content.replace("192.168.20.10", "not-an-ip")), DEVICE_CONFIG)
+
+    def test_enabled_mission_requires_field_path(self):
+        content = MQTAV_CONFIG.read_text(encoding="utf-8")
+        content = content.replace("enabled: false", "enabled: true").replace('    field_path: "data"\n', "")
+        with self.assertRaisesRegex(ConfigError, "ros.mission.field_path"):
+            load_config(self.write_config(content), DEVICE_CONFIG)
+
+    def test_wildcard_topic_is_rejected(self):
+        content = MQTAV_CONFIG.read_text(encoding="utf-8")
+        with self.assertRaisesRegex(ConfigError, "wildcards"):
+            load_config(self.write_config(content.replace("mqtav/{device_id}/status", "mqtav/#")), DEVICE_CONFIG)
+
+    def test_invalid_shared_device_schema_is_rejected(self):
+        device_path = self.write_config('schema_version: 2\ndevice:\n  id: "UAV_001"\n  ip: "192.168.151.250"\n')
+        with self.assertRaisesRegex(ConfigError, "schema_version"):
+            load_config(MQTAV_CONFIG, device_path)
+
+    def test_custom_state_freshness_and_battery_mapping(self):
+        content = MQTAV_CONFIG.read_text(encoding="utf-8")
+        content = content.replace('topic: "/mavros/state"', 'topic: "/scout_status"')
+        content = content.replace('message_type: "mavros_msgs/State"', 'message_type: "scout_msgs/ScoutStatus"')
+        content = content.replace('    mapping: {connected: "connected", armed: "armed", system_status: "system_status", mode: "mode"}', '    connected_on_message: true\n    timeout_seconds: 3.0\n    mapping: {connected: null, armed: null, system_status: "fault_code", mode: "control_mode"}')
+        content = content.replace('topic: "/mavros/battery"', 'topic: "/scout_status"')
+        content = content.replace('message_type: "sensor_msgs/BatteryState"', 'message_type: "scout_msgs/ScoutStatus"')
+        content = content.replace('    mapping: {percentage: "percentage", voltage: "voltage", current: "current"}', '    mapping: {percentage: null, voltage: "battery_voltage", current: null}')
+        config = load_config(self.write_config(content), DEVICE_CONFIG)
+        self.assertTrue(config.ros.state.connected_on_message)
+        self.assertEqual(config.ros.state.timeout_seconds, 3.0)
+        self.assertEqual(config.ros.battery.mapping["voltage"], "battery_voltage")
+
+    def test_battery_subscription_can_be_disabled(self):
+        content = MQTAV_CONFIG.read_text(encoding="utf-8")
+        content = content.replace(
+            '  battery:\n    topic: "/mavros/battery"\n'
+            '    message_type: "sensor_msgs/BatteryState"\n'
+            '    mapping: {percentage: "percentage", voltage: "voltage", current: "current"}\n',
+            '  battery:\n    enabled: false\n',
+        )
+        config = load_config(self.write_config(content), DEVICE_CONFIG)
+        self.assertFalse(config.ros.battery.enabled)
+        self.assertEqual(config.ros.battery.mapping["percentage"], None)

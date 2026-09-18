@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.launch text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.patch -text -diff
+*.sha256 text eol=lf

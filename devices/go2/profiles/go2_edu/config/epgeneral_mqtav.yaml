@@ -1,0 +1,24 @@
+mqtt:
+  ground_station_ip: "192.168.50.101"
+  port: 1883
+  client_id_prefix: "mqtav-"
+  qos: 1
+  keepalive_seconds: 10
+  heartbeat_hz: 1
+  telemetry_hz: 1
+  topics:
+    presence: "mqtav/{device_id}/presence"
+    heartbeat: "mqtav/{device_id}/heartbeat"
+    status: "mqtav/{device_id}/status"
+ros:
+  node_name: "epgeneral_mqtav"
+  state:
+    topic: "/livox/lidar"
+    message_type: "livox_ros_driver2/CustomMsg"
+    connected_on_message: true
+    timeout_seconds: 3.0
+    mapping: {connected: null, armed: null, system_status: null, mode: null}
+  battery:
+    enabled: false
+  mission:
+    enabled: false

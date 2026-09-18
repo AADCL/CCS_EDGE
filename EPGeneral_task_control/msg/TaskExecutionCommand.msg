@@ -1,0 +1,17 @@
+uint8 SCHEDULE=1
+uint8 CANCEL=2
+uint8 STOP=3
+uint8 PREPARE=4
+uint8 UNLOAD=5
+uint8 EMERGENCY_STOP=6
+uint8 action
+string request_id
+string task_id
+string subtask_id
+string device_id
+string execution_id
+uint32 revision
+string xml_path
+string frame_id
+string map_id
+time scheduled_at
