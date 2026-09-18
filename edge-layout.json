@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "common_packages": [
+    "EPGeneral_device_config",
+    "epgeneral_mqtav",
+    "EPGeneral_udp_telemetry",
+    "EPGeneral_video_srt",
+    "EPGeneral_map_stream",
+    "EPGeneral_relocalization",
+    "EPGeneral_task_control"
+  ],
+  "special_packages": {
+    "EPGeneral_go2_integration": "devices/go2/EPGeneral_go2_integration",
+    "EPGeneral_ground_air_control": "devices/ground_air_agv/EPGeneral_ground_air_control"
+  },
+  "profiles": {
+    "go2_edu": {
+      "device_type": "go2",
+      "path": "devices/go2/profiles/go2_edu",
+      "additional_packages": []
+    },
+    "go2_robot2": {
+      "device_type": "go2",
+      "path": "devices/go2/profiles/go2_robot2",
+      "additional_packages": [
+        "EPGeneral_go2_integration"
+      ]
+    },
+    "go2_robot3": {
+      "device_type": "go2",
+      "path": "devices/go2/profiles/go2_robot3",
+      "additional_packages": [
+        "EPGeneral_go2_integration"
+      ]
+    },
+    "scout_mini": {
+      "device_type": "scout_mini",
+      "path": "devices/scout_mini/profiles/scout_mini",
+      "additional_packages": []
+    },
+    "wheeltec_r550p": {
+      "device_type": "wheeltec_r550p",
+      "path": "devices/wheeltec_r550p/profiles/wheeltec_r550p",
+      "additional_packages": []
+    },
+    "wheeltec_r550p_02": {
+      "device_type": "wheeltec_r550p",
+      "path": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02",
+      "additional_packages": []
+    },
+    "ground_air_agv": {
+      "device_type": "ground_air_agv",
+      "path": "devices/ground_air_agv/profiles/ground_air_agv",
+      "additional_packages": [
+        "EPGeneral_ground_air_control"
+      ]
+    }
+  }
+}

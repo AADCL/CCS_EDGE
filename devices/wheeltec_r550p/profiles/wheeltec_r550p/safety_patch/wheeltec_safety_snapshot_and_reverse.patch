@@ -1,0 +1,444 @@
+diff --git a/build/ugv003_safety_patch/original/README.md b/build/ugv003_safety_patch/modified/README.md
+index 5f8ae10..398e6e1 100644
+--- a/build/ugv003_safety_patch/original/README.md
++++ b/build/ugv003_safety_patch/modified/README.md
+@@ -41,6 +41,21 @@ cloud. The raw cloud is transformed once, cropped to the bounded swept region,
+ and reduced to 5 cm XY cells. A cell is blocked when its local vertical span is
+ at least 8 cm, retaining thin upright objects while rejecting locally planar
+ floors and ramps. The full cloud is never retained or reprocessed at 20 Hz.
++Snapshot, collision evaluation, and output publication are serialized against
++perception commits, so high-rate clouds cannot starve the velocity output while
++each published decision still corresponds to one coherent input generation.
++
++The ROS OccupancyGrid value 99 denotes an already-inflated inscribed region,
++while 100 denotes a source lethal cell. The gate checks only value 100 because
++it applies the measured rectangular footprint and predicted sweep itself.
++Known lethal cells whose square overlaps the current body are treated as self
++returns. Unknown cells remain blocking even inside the current body, and fresh
++classified and raw clouds remain mandatory independent vetoes.
++
++The UGV_003 profile uses a 0.02 m/s linear deadband. This absorbs the small
++negative solver drift TEB emits during in-place turns. Larger reverse requests
++still latch the gate, and negative linear velocity is never forwarded while
++`allow_reverse` is false.
+ 
+ While the gate is locked it repeats a cancel-all request to `move_base` once per
+ second. Pause FLARE first after any fault, then reset and arm the gate, and only
+diff --git a/build/ugv003_safety_patch/original/config/cmd_vel_safety.yaml b/build/ugv003_safety_patch/modified/config/cmd_vel_safety.yaml
+index 8756645..3f7aa31 100644
+--- a/build/ugv003_safety_patch/original/config/cmd_vel_safety.yaml
++++ b/build/ugv003_safety_patch/modified/config/cmd_vel_safety.yaml
+@@ -46,12 +46,18 @@ prediction_samples: 12
+ 
+ # Rear coverage is incomplete with the current single Mid-360 installation.
+ allow_reverse: false
+-linear_deadband: 0.005
++# TEB can emit a few mm/s of negative solver drift while commanding an
++# in-place turn. Treat up to 2 cm/s as zero; larger reverse requests still
++# latch the gate, and the output sanitizer never forwards negative velocity.
++linear_deadband: 0.02
+ angular_deadband: 0.01
+ max_linear_speed: 0.20
+ max_angular_speed: 0.40
+ 
+-costmap_lethal_threshold: 99
++# OccupancyGrid value 99 is the costmap's already-inflated inscribed region.
++# The gate applies its own measured footprint and swept-motion geometry, so
++# only source lethal cells (value 100) participate in this independent veto.
++costmap_lethal_threshold: 100
+ treat_costmap_unknown_as_unsafe: true
+ 
+ # Independent veto before ground/non-ground classification. Only the cropped
+diff --git a/build/ugv003_safety_patch/original/package.xml b/build/ugv003_safety_patch/modified/package.xml
+index eea8edb..c5ffdf9 100644
+--- a/build/ugv003_safety_patch/original/package.xml
++++ b/build/ugv003_safety_patch/modified/package.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0"?>
+ <package format="2">
+   <name>wheeltec_safety</name>
+-  <version>0.1.0</version>
++  <version>0.1.2</version>
+   <description>Fail-closed velocity gate for the WheelTech mobile base.</description>
+   <maintainer email="114551361+BAIOLED@users.noreply.github.com">BAIOLED</maintainer>
+   <license>BSD-3-Clause</license>
+diff --git a/build/ugv003_safety_patch/original/scripts/cmd_vel_safety_gate.py b/build/ugv003_safety_patch/modified/scripts/cmd_vel_safety_gate.py
+index 3a1cb13..f78d8cc 100644
+--- a/build/ugv003_safety_patch/original/scripts/cmd_vel_safety_gate.py
++++ b/build/ugv003_safety_patch/modified/scripts/cmd_vel_safety_gate.py
+@@ -28,9 +28,12 @@ from wheeltec_safety.safety_core import (
+     SafetyInterlock,
+     apply_grid_update,
+     command_caller_is_expected,
++    costmap_cell_blocks,
++    costmap_cell_overlaps_body,
+     goal_handshake_fault,
+     motion_fault_reason,
+     motion_requested,
++    sanitized_velocity,
+     snapshot_is_current,
+     vertical_span_obstacle_cells,
+ )
+@@ -244,7 +247,7 @@ class CmdVelSafetyGate:
+             0.01, float(rospy.get_param("~max_angular_speed", 0.40))
+         )
+         self.costmap_lethal_threshold = max(
+-            1, min(100, int(rospy.get_param("~costmap_lethal_threshold", 99)))
++            1, min(100, int(rospy.get_param("~costmap_lethal_threshold", 100)))
+         )
+         self.unknown_is_unsafe = bool_param(
+             "~treat_costmap_unknown_as_unsafe", True
+@@ -999,7 +1002,11 @@ class CmdVelSafetyGate:
+ 
+     def timer_callback(self):
+         try:
+-            self.run_cycle()
++            # Input commits take the same reentrant lock. Serializing the
++            # complete decision prevents high-rate perception from starving
++            # every output cycle while keeping one coherent safety snapshot.
++            with self.output_lock:
++                self.run_cycle()
+         except Exception as error:  # The output path must fail closed.
+             cancel_needed = False
+             with self.output_lock:
+@@ -1308,17 +1315,15 @@ class CmdVelSafetyGate:
+ 
+     def sanitized_command(self, command):
+         output = Twist()
+-        output.linear.x = max(
+-            -self.max_linear_speed, min(self.max_linear_speed, command.linear.x)
+-        )
+-        output.angular.z = max(
+-            -self.max_angular_speed,
+-            min(self.max_angular_speed, command.angular.z),
++        output.linear.x, output.angular.z = sanitized_velocity(
++            linear_x=command.linear.x,
++            angular_z=command.angular.z,
++            max_linear_speed=self.max_linear_speed,
++            max_angular_speed=self.max_angular_speed,
++            linear_deadband=self.linear_deadband,
++            angular_deadband=self.angular_deadband,
++            allow_reverse=self.allow_reverse,
+         )
+-        if abs(output.linear.x) < self.linear_deadband:
+-            output.linear.x = 0.0
+-        if abs(output.angular.z) < self.angular_deadband:
+-            output.angular.z = 0.0
+         return output
+ 
+     def prediction_poses(self, command):
+@@ -1369,15 +1374,13 @@ class CmdVelSafetyGate:
+         origin_yaw = yaw_from_quaternion(origin.orientation)
+         origin_cosine = math.cos(origin_yaw)
+         origin_sine = math.sin(origin_yaw)
++        cell_yaw_in_base = origin_yaw - transform_yaw
+         resolution = costmap.info.resolution
+         width = costmap.info.width
+         minimum = math.inf
+ 
+         for index, value in enumerate(costmap.data):
+-            unsafe = value >= self.costmap_lethal_threshold or (
+-                value < 0 and self.unknown_is_unsafe
+-            )
+-            if not unsafe:
++            if value >= 0 and value < self.costmap_lethal_threshold:
+                 continue
+             mx = index % width
+             my = index // width
+@@ -1397,6 +1400,26 @@ class CmdVelSafetyGate:
+             dy = world_y - ty
+             base_x = transform_cosine * dx + transform_sine * dy
+             base_y = -transform_sine * dx + transform_cosine * dy
++            # A known lethal cell may be a retained source return on a body
++            # boundary. Unknown cells remain blocking even inside the body.
++            overlaps_body = value >= self.costmap_lethal_threshold and (
++                costmap_cell_overlaps_body(
++                    center_x=base_x,
++                    center_y=base_y,
++                    resolution=resolution,
++                    cell_yaw=cell_yaw_in_base,
++                    body_front=self.front,
++                    body_rear=self.rear,
++                    body_half_width=self.half_width,
++                )
++            )
++            if not costmap_cell_blocks(
++                value,
++                self.costmap_lethal_threshold,
++                self.unknown_is_unsafe,
++                overlaps_body,
++            ):
++                continue
+             if self.point_in_stop_region(base_x, base_y, command, poses):
+                 minimum = min(minimum, math.hypot(base_x, base_y))
+         return math.isfinite(minimum), minimum
+diff --git a/build/ugv003_safety_patch/original/src/wheeltec_safety/safety_core.py b/build/ugv003_safety_patch/modified/src/wheeltec_safety/safety_core.py
+index 04c3e5c..e027cbf 100644
+--- a/build/ugv003_safety_patch/original/src/wheeltec_safety/safety_core.py
++++ b/build/ugv003_safety_patch/modified/src/wheeltec_safety/safety_core.py
+@@ -105,6 +105,29 @@ def motion_requested(linear_x, angular_z, linear_deadband, angular_deadband):
+     )
+ 
+ 
++def sanitized_velocity(
++    linear_x,
++    angular_z,
++    max_linear_speed,
++    max_angular_speed,
++    linear_deadband,
++    angular_deadband,
++    allow_reverse,
++):
++    """Clamp a planner command without ever leaking prohibited reverse motion."""
++    output_linear_x = max(-max_linear_speed, min(max_linear_speed, linear_x))
++    output_angular_z = max(
++        -max_angular_speed, min(max_angular_speed, angular_z)
++    )
++    if (not allow_reverse and output_linear_x < 0.0) or (
++        abs(output_linear_x) <= linear_deadband
++    ):
++        output_linear_x = 0.0
++    if abs(output_angular_z) <= angular_deadband:
++        output_angular_z = 0.0
++    return output_linear_x, output_angular_z
++
++
+ def goal_handshake_fault(
+     has_live_goal,
+     goal_age,
+@@ -205,6 +228,70 @@ def apply_grid_update(data, width, height, x, y, update_width, update_height,
+     return output
+ 
+ 
++def costmap_cell_overlaps_body(
++    center_x,
++    center_y,
++    resolution,
++    cell_yaw,
++    body_front,
++    body_rear,
++    body_half_width,
++):
++    """Return whether an oriented square costmap cell overlaps the robot body."""
++    values = (
++        center_x,
++        center_y,
++        resolution,
++        cell_yaw,
++        body_front,
++        body_rear,
++        body_half_width,
++    )
++    if not all(math.isfinite(value) for value in values):
++        raise ValueError("costmap/body geometry must be finite")
++    if (
++        resolution <= 0.0
++        or body_front <= 0.0
++        or body_rear <= 0.0
++        or body_half_width <= 0.0
++    ):
++        raise ValueError("costmap/body dimensions must be positive")
++
++    body_center_x = (body_front - body_rear) / 2.0
++    body_half_length = (body_front + body_rear) / 2.0
++    delta_x = center_x - body_center_x
++    delta_y = center_y
++    cosine = math.cos(cell_yaw)
++    sine = math.sin(cell_yaw)
++    cell_axes = ((cosine, sine), (-sine, cosine))
++    axes = ((1.0, 0.0), (0.0, 1.0)) + cell_axes
++    cell_half = resolution / 2.0
++
++    for axis_x, axis_y in axes:
++        separation = abs(delta_x * axis_x + delta_y * axis_y)
++        body_projection = (
++            body_half_length * abs(axis_x)
++            + body_half_width * abs(axis_y)
++        )
++        cell_projection = cell_half * (
++            abs(axis_x * cell_axes[0][0] + axis_y * cell_axes[0][1])
++            + abs(axis_x * cell_axes[1][0] + axis_y * cell_axes[1][1])
++        )
++        if separation > body_projection + cell_projection + 1e-12:
++            return False
++    return True
++
++
++def costmap_cell_blocks(value, lethal_threshold, unknown_is_unsafe,
++                        overlaps_body):
++    """Classify a costmap cell without masking unknown space in the body."""
++    if value < 0:
++        return bool(unknown_is_unsafe)
++    if value < lethal_threshold:
++        return False
++    return not overlaps_body
++
++
+ def vertical_span_obstacle_cells(
+     points,
+     cell_size,
+diff --git a/build/ugv003_safety_patch/original/test/test_safety_core.py b/build/ugv003_safety_patch/modified/test/test_safety_core.py
+index 188a5ce..fbfc969 100644
+--- a/build/ugv003_safety_patch/original/test/test_safety_core.py
++++ b/build/ugv003_safety_patch/modified/test/test_safety_core.py
+@@ -13,8 +13,11 @@ from wheeltec_safety.safety_core import (
+     SafetyInterlock,
+     apply_grid_update,
+     command_caller_is_expected,
++    costmap_cell_blocks,
++    costmap_cell_overlaps_body,
+     goal_handshake_fault,
+     motion_fault_reason,
++    sanitized_velocity,
+     snapshot_is_current,
+     vertical_span_obstacle_cells,
+ )
+@@ -98,6 +101,58 @@ class SafetyCoreTest(unittest.TestCase):
+             "reverse_command_inhibited",
+         )
+ 
++    def test_teb_reverse_drift_is_zeroed_but_meaningful_reverse_faults(self):
++        self.assertIsNone(
++            fault(
++                linear_x=-0.0067,
++                angular_z=0.235,
++                linear_deadband=0.02,
++            )
++        )
++        self.assertEqual(
++            fault(
++                linear_x=-0.021,
++                angular_z=0.235,
++                linear_deadband=0.02,
++            ),
++            "reverse_command_inhibited",
++        )
++
++    def test_sanitizer_never_forwards_reverse_when_reverse_is_disabled(self):
++        values = dict(
++            max_linear_speed=0.20,
++            max_angular_speed=0.40,
++            linear_deadband=0.02,
++            angular_deadband=0.01,
++            allow_reverse=False,
++        )
++        self.assertEqual(
++            sanitized_velocity(-0.02, 0.235, **values),
++            (0.0, 0.235),
++        )
++        self.assertEqual(
++            sanitized_velocity(0.019, 0.0, **values),
++            (0.0, 0.0),
++        )
++        self.assertEqual(
++            sanitized_velocity(0.021, 0.0, **values),
++            (0.021, 0.0),
++        )
++
++    def test_sanitizer_preserves_reverse_only_when_explicitly_enabled(self):
++        self.assertEqual(
++            sanitized_velocity(
++                -0.021,
++                0.0,
++                max_linear_speed=0.20,
++                max_angular_speed=0.40,
++                linear_deadband=0.02,
++                angular_deadband=0.01,
++                allow_reverse=True,
++            ),
++            (-0.021, 0.0),
++        )
++
+     def test_stale_or_empty_local_plan_stops_nonzero_command(self):
+         self.assertEqual(
+             fault(local_plan_age=0.40),
+@@ -149,6 +204,35 @@ class SafetyCoreTest(unittest.TestCase):
+                 update_data=[100, 100],
+             )
+ 
++    def test_costmap_cell_area_filters_self_return_but_not_external_obstacle(self):
++        values = dict(
++            resolution=0.05,
++            cell_yaw=0.11414,
++            body_front=0.25,
++            body_rear=0.25,
++            body_half_width=0.20,
++        )
++        # Captured UGV_003 lethal cell center lies just outside the center-line
++        # rectangle, but its 5 cm square overlaps the measured body.
++        self.assertTrue(
++            costmap_cell_overlaps_body(-0.227439, 0.211043, **values)
++        )
++        self.assertFalse(
++            costmap_cell_overlaps_body(-0.31, 0.30, **values)
++        )
++        with self.assertRaises(ValueError):
++            costmap_cell_overlaps_body(
++                0.0, 0.0, resolution=0.0, cell_yaw=0.0,
++                body_front=0.25, body_rear=0.25, body_half_width=0.20,
++            )
++
++    def test_costmap_classification_keeps_unknown_cells_fail_closed(self):
++        self.assertFalse(costmap_cell_blocks(99, 100, True, False))
++        self.assertTrue(costmap_cell_blocks(100, 100, True, False))
++        self.assertFalse(costmap_cell_blocks(100, 100, True, True))
++        self.assertTrue(costmap_cell_blocks(-1, 100, True, True))
++        self.assertFalse(costmap_cell_blocks(-1, 100, False, False))
++
+     def test_first_goal_is_immediate_and_waits_for_matching_status(self):
+         tracker = MoveBaseGoalTracker()
+         self.assertTrue(tracker.accept_goal("goal-a", now=1.0))
+diff --git a/build/ugv003_safety_patch/original/test/test_safety_wiring.py b/build/ugv003_safety_patch/modified/test/test_safety_wiring.py
+index f8d1e84..b737592 100644
+--- a/build/ugv003_safety_patch/original/test/test_safety_wiring.py
++++ b/build/ugv003_safety_patch/modified/test/test_safety_wiring.py
+@@ -93,6 +93,26 @@ class SafetyWiringTest(unittest.TestCase):
+         self.assertTrue(publishes)
+         self.assertLess(guards[0].lineno, min(node.lineno for node in publishes))
+ 
++    def test_timer_serializes_complete_cycle_against_input_commits(self):
++        timer = self.methods["timer_callback"]
++        serialized_cycles = [
++            node
++            for node in ast.walk(timer)
++            if isinstance(node, ast.With)
++            and any(
++                isinstance(item.context_expr, ast.Attribute)
++                and item.context_expr.attr == "output_lock"
++                for item in node.items
++            )
++            and any(
++                isinstance(child, ast.Call)
++                and isinstance(child.func, ast.Attribute)
++                and child.func.attr == "run_cycle"
++                for child in ast.walk(node)
++            )
++        ]
++        self.assertEqual(len(serialized_cycles), 1)
++
+     def test_goal_and_command_callbacks_enforce_sources(self):
+         init_nodes = tuple(ast.walk(self.methods["__init__"]))
+         init_names = {
+@@ -123,6 +143,22 @@ class SafetyWiringTest(unittest.TestCase):
+         self.assertIn("command_caller_is_expected", command_names)
+         self.assertIn("unexpected_command_publisher", command_strings)
+ 
++    def test_costmap_uses_source_lethal_cells_and_filters_body_overlap(self):
++        config = (PACKAGE_ROOT / "config" / "cmd_vel_safety.yaml").read_text(
++            encoding="utf-8"
++        )
++        self.assertIn("\ncostmap_lethal_threshold: 100\n", "\n" + config)
++        calls = [
++            node
++            for node in ast.walk(self.methods["costmap_stop_check"])
++            if isinstance(node, ast.Call)
++            and isinstance(node.func, ast.Name)
++            and node.func.id == "costmap_cell_overlaps_body"
++        ]
++        self.assertEqual(len(calls), 1)
++        source = SCRIPT_PATH.read_text(encoding="utf-8")
++        self.assertIn("costmap_cell_blocks", source)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

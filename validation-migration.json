@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-18",
+  "source_commit": "dbe85904cdbae3d3b837f8816f29d1f030d7bd5a",
+  "checks": {
+    "profiles_and_documentation": "93 tests passed on Ubuntu 20.04, including 10 Bash watchdog tests",
+    "additional_layout_version_documentation": "17 affected tests passed after adding 8 layout/version checks",
+    "packages": "317 package tests passed across separate processes; final map-stream increment 88 passed",
+    "shell": "all .sh files passed bash -n",
+    "static": "Python 3.8 syntax, XML, YAML, 56 core configs, links and anchors passed",
+    "provenance": "333 source entries have destinations; 2 entire cross-repository test modules retained in CCS_dev",
+    "scope": "7 common packages + 2 dedicated packages, 7 profiles, exactly 2 device Markdown documents per type"
+  },
+  "limitations": [
+    "No ROS catkin compilation on a physical device; no motion or real-device acceptance performed.",
+    "Cross-repository protocol tests and distribution checks run in CCS_dev integration PR.",
+    "Historical logs and patches preserve original facts and bytes; Apache-2.0 LICENSE unchanged."
+  ],
+  "review": {
+    "type": "local full migration comparison, not independent GitHub approval",
+    "findings_fixed": [
+      "Preserve UGV_003 launch; separate UGV_004 V5.1 launch and matching profile.",
+      "Rebase Ground-Air updater roots, source-package paths and document paths.",
+      "Move ground-station-dependent tests back to CCS_dev.",
+      "Avoid broken offline document copies in staging; use repository documentation.",
+      "Document new clear_costmaps fields and validate configuration coverage."
+    ]
+  }
+}

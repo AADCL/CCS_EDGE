@@ -1,0 +1,43 @@
+<launch>
+  <!-- CCS PCD/PGM/YAML contract, using V5.1 live obstacle sensing and TEB.
+       Localization and drivers are owned by the other lifecycle stages. -->
+  <arg name="map_name" default="ccs_map" />
+  <arg name="map_dir" default="$(env HOME)/ccs_edge_ws/maps/download/$(arg map_name)" />
+  <arg name="nav_map_yaml" default="$(arg map_dir)/map.yaml" />
+  <arg name="odom_topic" default="/fastlio_odom" />
+  <arg name="cmd_vel_topic" default="/cmd_vel" />
+
+  <include file="$(find wheeltec_cloud_adapter)/launch/include/cloud_adapter.launch.xml">
+    <arg name="input_topic" value="/cloud_registered_body" />
+    <arg name="node_name" value="wheeltec_terrain_cloud_adapter" />
+    <arg name="output_topic" value="/cloud_registered_terrain" />
+    <arg name="target_frame" value="terrain_sensor" />
+  </include>
+  <include file="$(find wheeltec_terrain_filter)/launch/include/wheeltec_terrain_filter.launch.xml">
+    <arg name="input_cloud" value="/cloud_registered_terrain" />
+    <arg name="enable_guard" value="true" />
+    <arg name="patchwork_node_name" value="wheeltec_navigation_patchworkpp" />
+    <arg name="guard_node_name" value="wheeltec_navigation_terrain_guard" />
+  </include>
+  <node pkg="map_server" type="map_server" name="wheeltec_navigation_map_server"
+        args="$(arg nav_map_yaml)" output="screen" required="true">
+    <remap from="map" to="/nav_static_map" />
+    <remap from="map_metadata" to="/nav_static_map_metadata" />
+  </node>
+  <node pkg="move_base" type="move_base" name="move_base" output="screen" required="true">
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/move_base_slope_teb.yaml" />
+    <rosparam command="load" ns="global_costmap" file="$(find wheeltec_navigation)/config/costmap_common.yaml" />
+    <rosparam command="load" ns="global_costmap" file="$(find wheeltec_navigation)/config/global_costmap_slope.yaml" />
+    <rosparam command="load" ns="local_costmap" file="$(find wheeltec_navigation)/config/costmap_common.yaml" />
+    <rosparam command="load" ns="local_costmap" file="$(find wheeltec_navigation)/config/local_costmap_slope.yaml" />
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/global_planner_slope.yaml" />
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/teb_local_planner.yaml" />
+    <!-- Replace only the global plugin list; retain live local collision checks. -->
+    <rosparam param="global_costmap/plugins">
+      - {name: static_layer, type: "costmap_2d::StaticLayer"}
+      - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+    </rosparam>
+    <remap from="odom" to="$(arg odom_topic)" />
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
+  </node>
+</launch>

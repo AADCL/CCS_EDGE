@@ -1,0 +1,31 @@
+import unittest
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+class PackageVersionTests(unittest.TestCase):
+    def test_map_stream_package_versions_match(self):
+        root = Path(__file__).resolve().parents[1] / "EPGeneral_map_stream"
+        package_version = ET.parse(root / "package.xml").getroot().findtext("version")
+        init_text = (root / "src" / "epgeneral_map_stream" / "__init__.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(package_version, "0.13.2")
+        self.assertIn('__version__ = "0.13.2"', init_text)
+
+    def test_relocalization_package_versions_match(self):
+        root = Path(__file__).resolve().parents[1] / "EPGeneral_relocalization"
+        package_version = ET.parse(root / "package.xml").getroot().findtext("version")
+        init_text = (root / "src" / "epgeneral_relocalization" / "__init__.py").read_text(
+            encoding="utf-8"
+        )
+        setup_text = (root / "setup.py").read_text(encoding="utf-8")
+        self.assertEqual(package_version, "0.4.0")
+        self.assertIn('__version__ = "0.4.0"', init_text)
+        self.assertIn('version="0.4.0"', setup_text)
+
+    def test_task_control_version_matches_manifest_and_source(self):
+        root = Path(__file__).resolve().parents[1] / "EPGeneral_task_control"
+        package_version = ET.parse(root / "package.xml").getroot().findtext("version")
+        init_text = (root / "src" / "epgeneral_task_control" / "__init__.py").read_text(encoding="utf-8")
+        self.assertEqual(package_version, "0.6.3")
+        self.assertIn('__version__ = "0.6.3"', init_text)

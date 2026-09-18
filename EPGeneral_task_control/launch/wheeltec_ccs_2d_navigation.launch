@@ -1,0 +1,65 @@
+<launch>
+  <!-- CCS downloads PCD/PGM/YAML maps. Global planning therefore uses the
+       2D occupancy map while local collision checks retain live Mid-360 data. -->
+  <arg name="map_name" default="ccs_map" />
+  <arg name="map_dir" default="$(env HOME)/livox_fastlio/maps/ccs_download/$(arg map_name)" />
+  <arg name="nav_map_yaml" default="$(arg map_dir)/map.yaml" />
+  <arg name="odom_topic" default="/odom" />
+  <arg name="cmd_vel_topic" default="/nav_cmd_vel" />
+
+  <include file="$(find wheeltec_cloud_adapter)/launch/cloud_adapter.launch">
+    <arg name="node_name" value="wheeltec_terrain_cloud_adapter" />
+    <arg name="output_topic" value="/cloud_registered_terrain" />
+    <arg name="target_frame" value="terrain_sensor" />
+  </include>
+  <include file="$(find wheeltec_terrain_filter)/launch/wheeltec_terrain_filter.launch">
+    <arg name="input_cloud" value="/cloud_registered_terrain" />
+    <arg name="enable_guard" value="true" />
+    <arg name="patchwork_node_name" value="wheeltec_navigation_patchworkpp" />
+    <arg name="guard_node_name" value="wheeltec_navigation_terrain_guard" />
+  </include>
+
+  <node pkg="map_server" type="map_server" name="wheeltec_navigation_map_server"
+        args="$(arg nav_map_yaml)" output="screen" required="true">
+    <remap from="map" to="/nav_static_map" />
+    <remap from="map_metadata" to="/nav_static_map_metadata" />
+  </node>
+
+  <node pkg="move_base" type="move_base" name="move_base"
+        output="screen" required="true">
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/move_base_slope_teb.yaml" />
+    <rosparam command="load" ns="global_costmap"
+              file="$(find wheeltec_navigation)/config/costmap_common.yaml" />
+    <rosparam command="load" ns="global_costmap"
+              file="$(find wheeltec_navigation)/config/global_costmap_slope.yaml" />
+    <rosparam command="load" ns="local_costmap"
+              file="$(find wheeltec_navigation)/config/costmap_common.yaml" />
+    <rosparam command="load" ns="local_costmap"
+              file="$(find wheeltec_navigation)/config/local_costmap_slope.yaml" />
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/global_planner_slope.yaml" />
+    <rosparam command="load" file="$(find wheeltec_navigation)/config/teb_local_planner.yaml" />
+    <!-- Keep 0 < penalty_epsilon < reverse bound < safety linear_deadband (0.02).
+         A 0.10 reverse bound let TEB trigger reverse_command_inhibited during
+         waypoint turns. Zero disables TEB's reverse saturation, so retain a
+         positive 0.01 bound; the safety gate converts this residual to zero.
+         Saturate axes independently to preserve turning authority. -->
+    <param name="TebLocalPlannerROS/max_vel_x" value="0.20" />
+    <param name="TebLocalPlannerROS/max_vel_x_backwards" value="0.01" />
+    <param name="TebLocalPlannerROS/penalty_epsilon" value="0.005" />
+    <param name="TebLocalPlannerROS/allow_init_with_backwards_motion" value="false" />
+    <param name="TebLocalPlannerROS/use_proportional_saturation" value="false" />
+    <param name="TebLocalPlannerROS/max_vel_theta" value="0.40" />
+    <param name="TebLocalPlannerROS/weight_kinematics_forward_drive" value="1000.0" />
+    <rosparam param="global_costmap/plugins">
+      - {name: static_layer, type: "costmap_2d::StaticLayer"}
+      - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+    </rosparam>
+    <remap from="odom" to="$(arg odom_topic)" />
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
+  </node>
+
+  <include file="$(find wheeltec_safety)/launch/cmd_vel_safety.launch">
+    <arg name="obstacle_topic" value="/terrain/obstacle_points" />
+    <arg name="raw_cloud_topic" value="/cloud_registered_terrain" />
+  </include>
+</launch>

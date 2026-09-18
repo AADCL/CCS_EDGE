@@ -1,0 +1,4 @@
+# These artifacts are consumed by Linux patch, sha256sum, and bash.
+*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
+*.sh text eol=lf
+*.sha256 text eol=lf

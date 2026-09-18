@@ -1,0 +1,11 @@
+{
+  "frames": {
+    "remote_mapping": "odom",
+    "preview_source": "odom",
+    "remote_artifact": "map"
+  },
+  "device": {
+    "device_id": "UGV_004",
+    "relocalization_profile": "wheeltec_r550p"
+  }
+}

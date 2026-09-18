@@ -1,0 +1,1347 @@
+{
+  "source_repository": "https://github.com/AADCL/CCS_dev",
+  "source_commit": "dbe85904cdbae3d3b837f8816f29d1f030d7bd5a",
+  "local_base_commit": "19d27d693a623defeb35969b00ddf57aae146746",
+  "includes_local_ugv004_and_documentation": true,
+  "files": {
+    "README.md": {
+      "sha256": "9fd41e4f5b5ad6331746fe012f04fdabf8dd6a3cd335f236055a0414b02e7f0c",
+      "destination": "README.md"
+    },
+    "deploy/EDGE_DEVICE_DEPLOYMENT_REQUEST.md": {
+      "sha256": "12f9e796aac98cafa79086ab09508014fba35a4ace64d67ac98cd53bf557e3cb",
+      "destination": "documents/USER_MANUAL.md#deploy-edge-device-deployment-request-md"
+    },
+    "deploy/README.md": {
+      "sha256": "049284382226a2fe9fcdbaa797d33307dbf07ce757f0b1f8d7a00e28a228c7d9",
+      "destination": "README.md"
+    },
+    "documents/CONFIG_TOPIC_REFERENCE.md": {
+      "sha256": "06e1fc9d7e380109e19f401487a078f9b29840e78b0163dc097bf965348807ce",
+      "destination": "documents/INTERFACE_REFERENCE.md#documents-config-topic-reference-md"
+    },
+    "documents/DEPLOYMENT_GUIDE.md": {
+      "sha256": "e923004ea793fc8959434a7f5a784e0ce3bd0f9a44760b5e90c2e81c8efec58f",
+      "destination": "documents/USER_MANUAL.md#documents-deployment-guide-md"
+    },
+    "documents/EXTERNAL_WORKSPACE_INTEGRATION.md": {
+      "sha256": "50be5d3a4a23d5a7c332a188ded0c7fd8880da0f014f82e29aa2f9a305e9c5d5",
+      "destination": "documents/INTERFACE_REFERENCE.md#documents-external-workspace-integration-md"
+    },
+    "documents/GO2_DEPLOYMENT_LESSONS.md": {
+      "sha256": "5c804d0d4e9aa4a3d6ce2f4023aa2470fb1208e0a3aed5837ee7faa7d9479e30",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#documents-go2-deployment-lessons-md"
+    },
+    "documents/GROUND_AIR_AGV_DEPLOYMENT.md": {
+      "sha256": "7e3550eb67f33f99cc5242ee7f94e04e489ec11394142265b7a08899a5cfd3de",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-deployment-md"
+    },
+    "documents/GROUND_AIR_AGV_DEPLOYMENT_LOG.md": {
+      "sha256": "e152367ecd3fb01c349c3b49533dffe1f4f508cb07cd512ec85e0bd081f23b8f",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-deployment-log-md"
+    },
+    "documents/GROUND_AIR_AGV_MAPPING_DEPLOYMENT.md": {
+      "sha256": "8c80f69ac880f331db2cc41430044e6482252437af20872e24713d954aa82103",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-mapping-deployment-md"
+    },
+    "documents/GROUND_AIR_AGV_MAPPING_DEPLOYMENT_LOG.md": {
+      "sha256": "ae5718a1fe01549877b250ade0a64c3577124d40387bb9aa3d6bb82a3d1113ed",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-mapping-deployment-log-md"
+    },
+    "documents/GROUND_AIR_AGV_RELOCALIZATION_DEPLOYMENT.md": {
+      "sha256": "54313643432f7679ab82b4f260b3ed89783488964a95ed5606f14ba12b423858",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-relocalization-deployment-md"
+    },
+    "documents/GROUND_AIR_AGV_RELOCALIZATION_DEPLOYMENT_LOG.md": {
+      "sha256": "f1370e433cc80b847ce8bd489de454262c8c691f294ad9af6b2bcff9047e0aef",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-relocalization-deployment-log-md"
+    },
+    "documents/GROUND_AIR_AGV_TASK_DEPLOYMENT.md": {
+      "sha256": "3cef6bf794a387f86a0e02e628b66540ad9c944957027e80e5f13e6283813eef",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-task-deployment-md"
+    },
+    "documents/GROUND_AIR_AGV_TASK_DEPLOYMENT_LOG.md": {
+      "sha256": "c0ad2f87e181fc45235cf41a4c198115896a3228d4c033f1e156e7b748c1e6e9",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#documents-ground-air-agv-task-deployment-log-md"
+    },
+    "documents/INTERFACE_REFERENCE.md": {
+      "sha256": "136b8036c3ecaf94c9ba60f6902fa450109fbd126f889613d0155dbae7192ff6",
+      "destination": "documents/INTERFACE_REFERENCE.md#documents-interface-reference-md"
+    },
+    "documents/SCOUT_MINI_DEPLOYMENT.md": {
+      "sha256": "5f47277099f1fa62fd486f26fea191c4f638858ff91044e5429b83fe72080fee",
+      "destination": "documents/devices/scout_mini/DEPLOYMENT_GUIDE.md#documents-scout-mini-deployment-md"
+    },
+    "documents/SCOUT_MINI_DEPLOYMENT_LOG.md": {
+      "sha256": "abf99f3f9388b8c4a629585b7a986b0df35ad2b48ca07fdc1eac818c98d6dcf2",
+      "destination": "documents/devices/scout_mini/DEPLOYMENT_GUIDE.md#documents-scout-mini-deployment-log-md"
+    },
+    "documents/USER_MANUAL.md": {
+      "sha256": "942987c3641e0fd0c310d03a80e9ee3357dfc459ddcf595d3820c5de636238ed",
+      "destination": "documents/USER_MANUAL.md#documents-user-manual-md"
+    },
+    "documents/WHEELTEC_R550P_DEPLOYMENT.md": {
+      "sha256": "f33a18419e61c980fe0cc80190b8eb05dda6b3f585267b71851dc9922ea80022",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md#documents-wheeltec-r550p-deployment-md"
+    },
+    "documents/WHEELTEC_R550P_DEPLOYMENT_LOG.md": {
+      "sha256": "dd72d3653e18f0096c56a507440a804376deddbabcf667fac69578f3a58800ec",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md#documents-wheeltec-r550p-deployment-log-md"
+    },
+    "EPGeneral_device_config/CHANGELOG.md": {
+      "sha256": "9e6d7999a82b208a20f20246cddb4ab10bb2699088309b858cb3bb0e27e1dc4c",
+      "destination": "EPGeneral_device_config/CHANGELOG.md"
+    },
+    "EPGeneral_device_config/CMakeLists.txt": {
+      "sha256": "2f16f4aa8adcc46cf2e7f881c55c9dc413bd0b6765ee2db174ee40265f8966ad",
+      "destination": "EPGeneral_device_config/CMakeLists.txt"
+    },
+    "EPGeneral_device_config/package.xml": {
+      "sha256": "9c50263b444f94944f2c612fdb40011a2ac7aedfed0afb4aab48fcb771734171",
+      "destination": "EPGeneral_device_config/package.xml"
+    },
+    "EPGeneral_device_config/README.md": {
+      "sha256": "474ff90a5a2707f9a32cb21ea2253b8838d1696513244d8206200b272aa02b00",
+      "destination": "EPGeneral_device_config/README.md"
+    },
+    "EPGeneral_go2_integration/CMakeLists.txt": {
+      "sha256": "180f86560505db39172a6ff9999e69906ec17a87435ba640926e178f0f3174a9",
+      "destination": "devices/go2/EPGeneral_go2_integration/CMakeLists.txt"
+    },
+    "EPGeneral_go2_integration/package.xml": {
+      "sha256": "7d92d54fb8bc7d0013b729f5be550130804eab820affaf2eb3991e230f9389e0",
+      "destination": "devices/go2/EPGeneral_go2_integration/package.xml"
+    },
+    "EPGeneral_go2_integration/README.md": {
+      "sha256": "824165c4720759560664caf228a23bef2d93c46d83ee767acd0b268a74af9250",
+      "destination": "devices/go2/EPGeneral_go2_integration/README.md"
+    },
+    "EPGeneral_ground_air_control/CMakeLists.txt": {
+      "sha256": "efd0b59a02aad205781c5ccb6d6e70b626de06120a5bf9c3cc5efdf975a644bc",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/CMakeLists.txt"
+    },
+    "EPGeneral_ground_air_control/package.xml": {
+      "sha256": "b2f41bca00857ce0f6c63cb1466e5bfb42db81f7440589c84ba9ca0e14274e16",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/package.xml"
+    },
+    "EPGeneral_ground_air_control/README.md": {
+      "sha256": "dbbdf39395bdb7d86abe7c69414bd13dd1739ad75af3dba9c67f8afa51d9c048",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/README.md"
+    },
+    "EPGeneral_ground_air_control/setup.py": {
+      "sha256": "a5de1884a58c0571a34a51b7f908818598fcf87745d0a57469f60b51c6c1e8e4",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/setup.py"
+    },
+    "EPGeneral_map_stream/CHANGELOG.md": {
+      "sha256": "d28895cba27062c37dfed055018284bcfc193c56ceffa134bed3871535b6e5a3",
+      "destination": "EPGeneral_map_stream/CHANGELOG.md"
+    },
+    "EPGeneral_map_stream/CMakeLists.txt": {
+      "sha256": "35089d7174c1872704add5d5c26ea88cb0d104d89a4697222884048c624d0254",
+      "destination": "EPGeneral_map_stream/CMakeLists.txt"
+    },
+    "EPGeneral_map_stream/package.xml": {
+      "sha256": "c10bdf9da7e651254aa65e6212b7fcae0d49e236bec7a5fd873d2704c368fc5c",
+      "destination": "EPGeneral_map_stream/package.xml"
+    },
+    "EPGeneral_map_stream/README.md": {
+      "sha256": "8729a3a281ebd25e3da28baaaa3b272815af21b4e5b3c33b6f9d29943be724bc",
+      "destination": "EPGeneral_map_stream/README.md"
+    },
+    "EPGeneral_map_stream/setup.py": {
+      "sha256": "90a3e92ff0dd46214411b1c3825da837ba478db606199b74ebf4a74cb00f2e6f",
+      "destination": "EPGeneral_map_stream/setup.py"
+    },
+    "epgeneral_mqtav/CHANGELOG.md": {
+      "sha256": "00839658149051b3c4a1d311eef77a7079e4ee44fb4352055efa8ac5f85660a8",
+      "destination": "epgeneral_mqtav/CHANGELOG.md"
+    },
+    "epgeneral_mqtav/CMakeLists.txt": {
+      "sha256": "52d19d2c34185b2e933d2c006e5fb434f6603c0ec6e19a911a25eb20f3e9fd63",
+      "destination": "epgeneral_mqtav/CMakeLists.txt"
+    },
+    "epgeneral_mqtav/DEVELOPMENT_LOG.md": {
+      "sha256": "9f2e69ddff605e1f020a44025ec5a36abaff1ea99560410cf75a67e27119f00b",
+      "destination": "epgeneral_mqtav/DEVELOPMENT_LOG.md"
+    },
+    "epgeneral_mqtav/package.xml": {
+      "sha256": "77686aa06b41dc42f9840de40a0c81fb2659cdf9a021cb9f91447b2318b7b988",
+      "destination": "epgeneral_mqtav/package.xml"
+    },
+    "epgeneral_mqtav/README.md": {
+      "sha256": "bb30e3f6e068bf72db622e6bc0f2f19e3c1a68994b6b23d2d110c421fd1de4a9",
+      "destination": "epgeneral_mqtav/README.md"
+    },
+    "epgeneral_mqtav/setup.py": {
+      "sha256": "d6c084a88d8791bf511fedb28eee87ee48e8fa9afcff706a0414948aaf4ec8ea",
+      "destination": "epgeneral_mqtav/setup.py"
+    },
+    "EPGeneral_relocalization/CHANGELOG.md": {
+      "sha256": "ae07a727cbe853f21ccbf2a3d18792a702fdb5fde02be2155a106bc047d7b804",
+      "destination": "EPGeneral_relocalization/CHANGELOG.md"
+    },
+    "EPGeneral_relocalization/CMakeLists.txt": {
+      "sha256": "752c816058ec12091d081d07ef7b4fbff1c2e5f62d5ea3fade71b95e2f151dfa",
+      "destination": "EPGeneral_relocalization/CMakeLists.txt"
+    },
+    "EPGeneral_relocalization/package.xml": {
+      "sha256": "39d23620a7c18a56589fa1fb56a6f328cdc910d0e39013d3059b81341c085419",
+      "destination": "EPGeneral_relocalization/package.xml"
+    },
+    "EPGeneral_relocalization/README.md": {
+      "sha256": "4e11b7406309046147fe66f29b8c717b310a25c0788bf25394512628d6adef00",
+      "destination": "EPGeneral_relocalization/README.md"
+    },
+    "EPGeneral_relocalization/setup.py": {
+      "sha256": "f35d907007474c05d4196c28f0bedfbc8e9f8480cc847ca8f17feb19ab54e409",
+      "destination": "EPGeneral_relocalization/setup.py"
+    },
+    "EPGeneral_task_control/CHANGELOG.md": {
+      "sha256": "80b4117bec66973547e5540fa9246ad9068cfc1f378ef7f75da882cde027d8da",
+      "destination": "EPGeneral_task_control/CHANGELOG.md"
+    },
+    "EPGeneral_task_control/CMakeLists.txt": {
+      "sha256": "06928a06a59a5c42e19cdb25ed418b11c77d282582d35bea775576d27fc505bf",
+      "destination": "EPGeneral_task_control/CMakeLists.txt"
+    },
+    "EPGeneral_task_control/package.xml": {
+      "sha256": "6c812313ba98d813fa00335a8a152b1a74da95b4d8efdeed8abed9eb38da0c00",
+      "destination": "EPGeneral_task_control/package.xml"
+    },
+    "EPGeneral_task_control/README.md": {
+      "sha256": "3b9fbf9ff8043bd16d4f4cc1d08ea2b28f734da0d47495ef43043830b9096047",
+      "destination": "EPGeneral_task_control/README.md"
+    },
+    "EPGeneral_task_control/setup.py": {
+      "sha256": "698dfc92b4876cd61d53eadd5d7ebbf1a03301a9b73bbdbd1185908e8e831833",
+      "destination": "EPGeneral_task_control/setup.py"
+    },
+    "EPGeneral_udp_telemetry/CHANGELOG.md": {
+      "sha256": "4ae32f94e8717834eefb1ff4b014a7b579c4e62e34d28395f612e139b436ef84",
+      "destination": "EPGeneral_udp_telemetry/CHANGELOG.md"
+    },
+    "EPGeneral_udp_telemetry/CMakeLists.txt": {
+      "sha256": "cfd80468d0f057f03113a56a1d43123937a91c0aebc7af4130864281137fedf2",
+      "destination": "EPGeneral_udp_telemetry/CMakeLists.txt"
+    },
+    "EPGeneral_udp_telemetry/package.xml": {
+      "sha256": "f0f5b1d21a37177c1b0b33d2a9f98273915127d4f3684bb4753b5fa11108f50f",
+      "destination": "EPGeneral_udp_telemetry/package.xml"
+    },
+    "EPGeneral_udp_telemetry/README.md": {
+      "sha256": "21d08956716185ccaf095b603ab9a62cf5b57ddcfd33eb9b68d3f6958becfe81",
+      "destination": "EPGeneral_udp_telemetry/README.md"
+    },
+    "EPGeneral_udp_telemetry/setup.py": {
+      "sha256": "d5d02f606a37b1c751e3ab85159c433b5a2103dddf12bdafdc6fe8fab08d4ab4",
+      "destination": "EPGeneral_udp_telemetry/setup.py"
+    },
+    "EPGeneral_video_srt/CHANGELOG.md": {
+      "sha256": "852c0597029dbcfd38d0d6bfce70160e638b1215ee66ea1496eae74fd7167db5",
+      "destination": "EPGeneral_video_srt/CHANGELOG.md"
+    },
+    "EPGeneral_video_srt/CMakeLists.txt": {
+      "sha256": "a78553758d52f466453a9c3a1f0e1e9dcc6a70c804a63e7fa7826d6494c448ba",
+      "destination": "EPGeneral_video_srt/CMakeLists.txt"
+    },
+    "EPGeneral_video_srt/package.xml": {
+      "sha256": "5eff89897118d6040d30b53bda7714bac40433856996dfffcc6477d954f27f42",
+      "destination": "EPGeneral_video_srt/package.xml"
+    },
+    "EPGeneral_video_srt/README.md": {
+      "sha256": "3e84cd5bb3c037c4e7f8885f8652a2f68f1942ccc91d6861a0dfc6bd7baa3204",
+      "destination": "EPGeneral_video_srt/README.md"
+    },
+    "deploy/go2_edu/DEPLOYMENT.md": {
+      "sha256": "b5c13dc43df406d4101b8e919f8f13b84cc25f65c0ab90e11d3d2d9c784f50ed",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-edu-deployment-md"
+    },
+    "deploy/go2_edu/start_ccs_edge_dev.sh": {
+      "sha256": "08a5919d7a33d46cb7da86d5646d59a22edde4a3e89f98d1047d7c38987521f3",
+      "destination": "devices/go2/profiles/go2_edu/start_ccs_edge_dev.sh"
+    },
+    "deploy/go2_robot2/ccs-sntp-sync.service": {
+      "sha256": "79661500e3b09a896d544a7c7b6cb9bb7c46c6006a8824d71ced9185636ed6e4",
+      "destination": "devices/go2/profiles/go2_robot2/ccs-sntp-sync.service"
+    },
+    "deploy/go2_robot2/DEPLOYMENT.md": {
+      "sha256": "ff6a717d547df27197f89c8b68bf530013836bf2279c7ca15426845cc5e78f72",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot2-deployment-md"
+    },
+    "deploy/go2_robot2/migrate_workspace.sh": {
+      "sha256": "1730599a92acb0fab75e05261ceedd047a935963c1473712802ca6a6926e4d91",
+      "destination": "devices/go2/profiles/go2_robot2/migrate_workspace.sh"
+    },
+    "deploy/go2_robot2/README.md": {
+      "sha256": "b0dd713568bbdaa1c2e9f4fc6c0a32f7b275916e7625652174b6870a7081d7dd",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot2-readme-md"
+    },
+    "deploy/go2_robot2/start_ccs_edge_dev.sh": {
+      "sha256": "97fb52a694d39fbc31f6e692d63f0c9f79dac1033de1bf385fec6191a1c94097",
+      "destination": "devices/go2/profiles/go2_robot2/start_ccs_edge_dev.sh"
+    },
+    "deploy/go2_robot2/VALIDATION.md": {
+      "sha256": "33f71ebac32e94e20bf0f39c2697d404e90b1d858546d90da0a65c93e7a186bf",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot2-validation-md"
+    },
+    "deploy/go2_robot2/verify_ros_contract.py": {
+      "sha256": "73857351199e6fc5ce048dd587d69111339d8728ed8883f09019d2064741e646",
+      "destination": "devices/go2/profiles/go2_robot2/verify_ros_contract.py"
+    },
+    "deploy/go2_robot3/DEPLOYMENT.md": {
+      "sha256": "f03a73f4028bd2c3f0f8fd338a2624e957863fac185fa8f594ed6b833f90d02d",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot3-deployment-md"
+    },
+    "deploy/go2_robot3/README.md": {
+      "sha256": "3f55a66c1dc1ab818107fb520a71e0432448526fc52930045c523505772c54c9",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot3-readme-md"
+    },
+    "deploy/go2_robot3/start_ccs_edge_dev.sh": {
+      "sha256": "3626901c9b5ab17f240c53aa69e13530e153e404e3a5a4eaa3cc6d237ed01af9",
+      "destination": "devices/go2/profiles/go2_robot3/start_ccs_edge_dev.sh"
+    },
+    "deploy/go2_robot3/VALIDATION.md": {
+      "sha256": "6cb81d421403401cdfea8b74a6cadeedbde2ecfdf14ff038feecd7358c506099",
+      "destination": "documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot3-validation-md"
+    },
+    "deploy/go2_robot3/verify_ros_contract.py": {
+      "sha256": "562ae53394b3e8182faaae940443db82edfd0600a692089b819be9c668ea09f1",
+      "destination": "devices/go2/profiles/go2_robot3/verify_ros_contract.py"
+    },
+    "deploy/ground_air_agv/ccs-edge-dev.service": {
+      "sha256": "6a3fff7349de6d9252f8c961a4ed48af6251544ecab63f39b0ac28565232b703",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/ccs-edge-dev.service"
+    },
+    "deploy/ground_air_agv/DEPLOYMENT.md": {
+      "sha256": "c8a12feaae5734e6da4d0ebc709534d472376052f8149bbb8f687d0d0f2af1cc",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md#deploy-ground-air-agv-deployment-md"
+    },
+    "deploy/ground_air_agv/deploy_relocalization_update.sh": {
+      "sha256": "02140ca0168235e7288c704fc5840479a1d2fb865dedf7821adad4e15ea416ee",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/deploy_relocalization_update.sh"
+    },
+    "deploy/ground_air_agv/deploy_stage_manager_update.sh": {
+      "sha256": "b5a487f55325d94881749a6ca3eadd2acf8a8dc1f360478a871356a181efa3ce",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/deploy_stage_manager_update.sh"
+    },
+    "deploy/ground_air_agv/start_ccs_edge_dev.sh": {
+      "sha256": "ec646301f025eb03e717def3ea865f139c9d75ba55f09d4713792181e6a08be7",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/start_ccs_edge_dev.sh"
+    },
+    "deploy/scout_mini/start_ccs_edge_dev.sh": {
+      "sha256": "f3f813f5682b17ec15c46110d97787ff6e08f1e1164d5fe40d2783d1bf4ec442",
+      "destination": "devices/scout_mini/profiles/scout_mini/start_ccs_edge_dev.sh"
+    },
+    "deploy/wheeltec_r550p/DEPLOYMENT.md": {
+      "sha256": "be4fb4a7059aacb1a912eb8107320cfffb66102d72028c1686abc72bd8ad0c1d",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md#deploy-wheeltec-r550p-deployment-md"
+    },
+    "deploy/wheeltec_r550p/manage_ccs_video.sh": {
+      "sha256": "248f78cf5ebef2dd9557ce2e0d62fe306cc2fb835a218cbbcdbfe852b71aa88f",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/manage_ccs_video.sh"
+    },
+    "deploy/wheeltec_r550p/start_ccs_edge_dev.sh": {
+      "sha256": "8706485f2be4985d96fcc92ede0d4930845b370fc8648ddf64fb2fb53b3906d1",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/start_ccs_edge_dev.sh"
+    },
+    "deploy/wheeltec_r550p_02/start_ccs_edge_dev.sh": {
+      "sha256": "8a0d8eece176aa140e45769336dc8439d57965102f45b4c5bceb2f8ed0226bb4",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/start_ccs_edge_dev.sh"
+    },
+    "deploy/wheeltec_r550p_02/timesyncd-ccs.conf": {
+      "sha256": "07c370a48f76f9bfe16e8611b9d6c8e5dcbb3c4fb188015c7827edc74b950274",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/timesyncd-ccs.conf"
+    },
+    "deploy/go2_edu/config/device.yaml": {
+      "sha256": "3cf8ce19acc941dc57f6904317715bff280d2fad3ab41dcab27bdaaa10448e8a",
+      "destination": "devices/go2/profiles/go2_edu/config/device.yaml"
+    },
+    "deploy/go2_edu/config/epgeneral_mqtav.yaml": {
+      "sha256": "0180429619712d3313b659795ea56ee9b6312ddb9b20cdb90afcc723235b90ed",
+      "destination": "devices/go2/profiles/go2_edu/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/go2_edu/config/map_stream.yaml": {
+      "sha256": "8d488268eab87e0b753b5e60f48868f9b647a5cc9a15218ee20c3d32bc5b875d",
+      "destination": "devices/go2/profiles/go2_edu/config/map_stream.yaml"
+    },
+    "deploy/go2_edu/config/relocalization.yaml": {
+      "sha256": "858643c3cfab972d776fbb2c0a2a04bb1aa9f2d0320b9cd2b1106d2c300bec1f",
+      "destination": "devices/go2/profiles/go2_edu/config/relocalization.yaml"
+    },
+    "deploy/go2_edu/config/task_control.yaml": {
+      "sha256": "380369828bcf2cc9717508ce688a588fca40dc8659f0ef25c3b08d249beb68e4",
+      "destination": "devices/go2/profiles/go2_edu/config/task_control.yaml"
+    },
+    "deploy/go2_edu/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/go2/profiles/go2_edu/config/timesyncd-ccs.conf"
+    },
+    "deploy/go2_edu/config/udp_telemetry.yaml": {
+      "sha256": "f85c8ea7922d2e851d281014b9fe7adbe0300e0ade1ff16e26b4a43988ba5b53",
+      "destination": "devices/go2/profiles/go2_edu/config/udp_telemetry.yaml"
+    },
+    "deploy/go2_edu/config/video.yaml": {
+      "sha256": "b19a4b3a843df02969a71d453ef8b89839eab9251c339e45044c409db05eef58",
+      "destination": "devices/go2/profiles/go2_edu/config/video.yaml"
+    },
+    "deploy/go2_edu/launch/go2_edu_bringup.launch": {
+      "sha256": "9e3d43c8fc568271e478487ea58d67a95db0335b2075beba8acf66b8bab4b94c",
+      "destination": "devices/go2/profiles/go2_edu/launch/go2_edu_bringup.launch"
+    },
+    "deploy/go2_robot2/config/device.yaml": {
+      "sha256": "9f1ec9b64a6fa8bb47ab17c393a205698c07d44c14adea812c6355c32529e472",
+      "destination": "devices/go2/profiles/go2_robot2/config/device.yaml"
+    },
+    "deploy/go2_robot2/config/epgeneral_mqtav.yaml": {
+      "sha256": "dec43a162fee577702b2b926d28d7cd2a58eb9e96864ee6f1f5c681442e28a67",
+      "destination": "devices/go2/profiles/go2_robot2/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/go2_robot2/config/map_stream.yaml": {
+      "sha256": "8ba79450e5728af11598809bcf758e7cf702748def48b227c6c71ce97e97f5de",
+      "destination": "devices/go2/profiles/go2_robot2/config/map_stream.yaml"
+    },
+    "deploy/go2_robot2/config/relocalization.yaml": {
+      "sha256": "b6ab9769143f6cfbaaaca0c6c539b7aef1341b9d400ab66a62dccc950e00b347",
+      "destination": "devices/go2/profiles/go2_robot2/config/relocalization.yaml"
+    },
+    "deploy/go2_robot2/config/task_control.yaml": {
+      "sha256": "8a8d5888beabe3c769867cac25fb7665dfab5915a472674d158f5a38411ce600",
+      "destination": "devices/go2/profiles/go2_robot2/config/task_control.yaml"
+    },
+    "deploy/go2_robot2/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/go2/profiles/go2_robot2/config/timesyncd-ccs.conf"
+    },
+    "deploy/go2_robot2/config/udp_telemetry.yaml": {
+      "sha256": "f1d17d9a65f5d8aa9486e0be42cf65c95ae94fd77fd4466bcb2b5989084e05fb",
+      "destination": "devices/go2/profiles/go2_robot2/config/udp_telemetry.yaml"
+    },
+    "deploy/go2_robot2/config/video.yaml": {
+      "sha256": "b19a4b3a843df02969a71d453ef8b89839eab9251c339e45044c409db05eef58",
+      "destination": "devices/go2/profiles/go2_robot2/config/video.yaml"
+    },
+    "deploy/go2_robot2/scripts/ccs_ros_readiness.py": {
+      "sha256": "2088c285b7f69d6c22440c4d4bb7a7bd1dda207b17d4c696d1c916b646b16988",
+      "destination": "devices/go2/profiles/go2_robot2/scripts/ccs_ros_readiness.py"
+    },
+    "deploy/go2_robot2/scripts/ccs_sntp_sync.py": {
+      "sha256": "b624ba35dea8f226be69aa145ffd927fb2e1554d0fb07f0ea9766f0901ffeafc",
+      "destination": "devices/go2/profiles/go2_robot2/scripts/ccs_sntp_sync.py"
+    },
+    "deploy/go2_robot3/config/device.yaml": {
+      "sha256": "3d76d63eb6af327ce0d375cc86c2e22136f6d2726403e453c68e6541389f6edc",
+      "destination": "devices/go2/profiles/go2_robot3/config/device.yaml"
+    },
+    "deploy/go2_robot3/config/epgeneral_mqtav.yaml": {
+      "sha256": "f0566a8a12d4f6f126decfd1d986d10f116e90e38d04fe0d541a0a6c27d86198",
+      "destination": "devices/go2/profiles/go2_robot3/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/go2_robot3/config/map_stream.yaml": {
+      "sha256": "dd72d2376e04c06a8488ad28d7a475cdfc9837575ee8baf86b46361114c2c54c",
+      "destination": "devices/go2/profiles/go2_robot3/config/map_stream.yaml"
+    },
+    "deploy/go2_robot3/config/relocalization.yaml": {
+      "sha256": "b6ab9769143f6cfbaaaca0c6c539b7aef1341b9d400ab66a62dccc950e00b347",
+      "destination": "devices/go2/profiles/go2_robot3/config/relocalization.yaml"
+    },
+    "deploy/go2_robot3/config/task_control.yaml": {
+      "sha256": "68244c9e267048b8917fb67a840f55eb6c433920d23624c105875b86154dbc0d",
+      "destination": "devices/go2/profiles/go2_robot3/config/task_control.yaml"
+    },
+    "deploy/go2_robot3/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/go2/profiles/go2_robot3/config/timesyncd-ccs.conf"
+    },
+    "deploy/go2_robot3/config/udp_telemetry.yaml": {
+      "sha256": "f1d17d9a65f5d8aa9486e0be42cf65c95ae94fd77fd4466bcb2b5989084e05fb",
+      "destination": "devices/go2/profiles/go2_robot3/config/udp_telemetry.yaml"
+    },
+    "deploy/go2_robot3/config/video.yaml": {
+      "sha256": "925031111cf989a64053798be5d023e2c418685207bf7c90f3110941f16dbe4a",
+      "destination": "devices/go2/profiles/go2_robot3/config/video.yaml"
+    },
+    "deploy/go2_robot3/scripts/ccs_go2_preflight.py": {
+      "sha256": "0bff8c28e1037c2aaf28deeef5abaf826a2209509f8d3ef5489cd22b8b40b701",
+      "destination": "devices/go2/profiles/go2_robot3/scripts/ccs_go2_preflight.py"
+    },
+    "deploy/go2_robot3/scripts/ccs_ros_readiness.py": {
+      "sha256": "2088c285b7f69d6c22440c4d4bb7a7bd1dda207b17d4c696d1c916b646b16988",
+      "destination": "devices/go2/profiles/go2_robot3/scripts/ccs_ros_readiness.py"
+    },
+    "deploy/go2_robot3/scripts/ccs_sntp_sync.py": {
+      "sha256": "d5de00e02fd036e8372602bcf06282ee082cd118adebb1ca403fa0cd12bc69c6",
+      "destination": "devices/go2/profiles/go2_robot3/scripts/ccs_sntp_sync.py"
+    },
+    "deploy/ground_air_agv/car_bringup_scripts/ground_air_stage_manager_node.py": {
+      "sha256": "608540e5f7ea84f5674b8bc25db4499f966e1c6a758a9dc8741fd664df599994",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_scripts/ground_air_stage_manager_node.py"
+    },
+    "deploy/ground_air_agv/car_bringup_scripts/system_stage_core.py": {
+      "sha256": "9d5503f470c9cb4392bc88801adb492e8a3a6b701bbfbc0e039b0bb98ec8f115",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_scripts/system_stage_core.py"
+    },
+    "deploy/ground_air_agv/car_bringup_scripts/system_stage_runtime.py": {
+      "sha256": "2982f6e61ef203a996abe6a2a3c4050cbc348faabea89ee3dd849e3c34ca4d59",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_scripts/system_stage_runtime.py"
+    },
+    "deploy/ground_air_agv/car_bringup_tests/test_ground_air_stage_manager.py": {
+      "sha256": "f9ac987e130ddeb1032871599c3d02d582e752727a40dab064322804faf932ad",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_tests/test_ground_air_stage_manager.py"
+    },
+    "deploy/ground_air_agv/car_bringup_tests/test_stage_manager_contract.py": {
+      "sha256": "c0274ac474a3c2a157827135a9de8551cee14a78415774b753333659c94a15e0",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_tests/test_stage_manager_contract.py"
+    },
+    "deploy/ground_air_agv/car_bringup_tests/test_system_stage_core.py": {
+      "sha256": "8e9aae071b521d11050bbbaa680c0cef1cfebbdfb2dcf207cff1db6ab3c1398d",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/car_bringup_tests/test_system_stage_core.py"
+    },
+    "deploy/ground_air_agv/config/device.yaml": {
+      "sha256": "b06b49d9a0067845d7c2248497a3019c4b00f4ff056326900558ace025b6fc09",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/device.yaml"
+    },
+    "deploy/ground_air_agv/config/epgeneral_mqtav.yaml": {
+      "sha256": "1aba3e0f541b2ebc2c05898542d1049ef58a16fc98756d16a84d79837859e9f9",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/ground_air_agv/config/map_stream.yaml": {
+      "sha256": "0f720955561b86ddf4d75ca9b8079871479929d43bec5491baa44c53ffee02d8",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/map_stream.yaml"
+    },
+    "deploy/ground_air_agv/config/relocalization.yaml": {
+      "sha256": "5915cb6b850bcf3cf2268dc214da0e2b13a5ae204825f5e36f60aa0a23cf2ee2",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/relocalization.yaml"
+    },
+    "deploy/ground_air_agv/config/task_control.yaml": {
+      "sha256": "81e85d97beb4b033e71cbc7a9ada7555af3e43b3ce8bff9754a98f27747416f3",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/task_control.yaml"
+    },
+    "deploy/ground_air_agv/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/timesyncd-ccs.conf"
+    },
+    "deploy/ground_air_agv/config/udp_telemetry.yaml": {
+      "sha256": "8b3eb2b86d34e96a00986092151f0a19a0008e8f65c875092433c3fcd722700d",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/udp_telemetry.yaml"
+    },
+    "deploy/ground_air_agv/config/video.yaml": {
+      "sha256": "2fa924710e17598759f8ada9a23e435c28a362579bce6d6ee5ba7f353dbdacca",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/config/video.yaml"
+    },
+    "deploy/ground_air_agv/launch/ground_air_agv_bringup.launch": {
+      "sha256": "07297c5476ded0aaeb300a86590788307e63dde68f0ba273cf8643621325d8ac",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/ground_air_agv_bringup.launch"
+    },
+    "deploy/ground_air_agv/launch/livox_mid360_base.launch": {
+      "sha256": "301da06f8423cf0ad34dd8057e7545b1f9ca49630b0af1d450fb807efe8c7441",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/livox_mid360_base.launch"
+    },
+    "deploy/ground_air_agv/launch/manual_mapping_control.launch": {
+      "sha256": "9bdf76b5c47e74fe61f6b8135418ec0853d73eee1a0fc48f07c3acf27a26f0a8",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/manual_mapping_control.launch"
+    },
+    "deploy/ground_air_agv/launch/mapping_coordinate_transforms.launch": {
+      "sha256": "0b647a527fc4a7f9cc397ebe7d9cd3f56ae3e260139e06c74dd9368b414a6553",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/mapping_coordinate_transforms.launch"
+    },
+    "deploy/ground_air_agv/launch/mavros_base.launch": {
+      "sha256": "75bb7b1122da9b0e317e5f0728d51be322014a9075cdc3d4078a178d6c1bd6b2",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/mavros_base.launch"
+    },
+    "deploy/ground_air_agv/launch/relocalization_control.launch": {
+      "sha256": "c115ac1d61ca88f929cb6e7b6ebe6e0acec0fd961108c84306552a7e266883a6",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/launch/relocalization_control.launch"
+    },
+    "deploy/ground_air_agv/overrides/car_bringup/package.xml": {
+      "sha256": "2e2a4a6098c5c66f2453825f6f5974bac67b356b353ab6733200387264cb276b",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/overrides/car_bringup/package.xml"
+    },
+    "deploy/ground_air_agv/overrides/car_bringup/launch/relocalization_system.launch": {
+      "sha256": "a03030b5832d96f9af126513bb6ead1f9e0ef03071432b007384c0049c497737",
+      "destination": "devices/ground_air_agv/profiles/ground_air_agv/overrides/car_bringup/launch/relocalization_system.launch"
+    },
+    "deploy/records/AGV_001/DEPLOYMENT.md": {
+      "sha256": "db80e220a291ce3d5b0dcd307720bbf18f94fed58f0a8d1174726f6e455bf5b3",
+      "destination": "documents/devices/ground_air_agv/DEPLOYMENT_RECORD.md#deploy-records-agv-001-deployment-md"
+    },
+    "deploy/records/QRD_001/DEPLOYMENT.md": {
+      "sha256": "a35bbb3fe8e88aecb0b3c1cf43a860f415dfe5365e31824fe4cc3216f5d41412",
+      "destination": "documents/devices/go2/DEPLOYMENT_RECORD.md#deploy-records-qrd-001-deployment-md"
+    },
+    "deploy/records/QRD_002/DEPLOYMENT.md": {
+      "sha256": "b90088614879b4688a361f1ebd604c055d915b51d6a0cf727e7b3d444cb1d837",
+      "destination": "documents/devices/go2/DEPLOYMENT_RECORD.md#deploy-records-qrd-002-deployment-md"
+    },
+    "deploy/records/QRD_002/INCREMENT_20260912_JOINT_SHUTDOWN.json": {
+      "sha256": "58801bc249f98405ce19756008cc8cb826f20bba696d68624222ce82b73493e0",
+      "destination": "devices/go2/profiles/go2_robot2/evidence/INCREMENT_20260912_JOINT_SHUTDOWN.json"
+    },
+    "deploy/records/QRD_003/DEPLOYMENT.md": {
+      "sha256": "15719410cd2ac91ab7aaf0db149978fca2611d424efa339efb42eb187f77aa12",
+      "destination": "documents/devices/go2/DEPLOYMENT_RECORD.md#deploy-records-qrd-003-deployment-md"
+    },
+    "deploy/records/QRD_003/INCREMENT_20260912_JOINT_SHUTDOWN.json": {
+      "sha256": "09a3024f8fed8868d50e05cf594dd8e039dbae3e59e9449e222b5d2148b04ca7",
+      "destination": "devices/go2/profiles/go2_robot3/evidence/INCREMENT_20260912_JOINT_SHUTDOWN.json"
+    },
+    "deploy/records/UGV_001/DEPLOYMENT.md": {
+      "sha256": "fc6b999e9230fccb7dd7d6eb45a02150551c219a6774200b0debc93dac1adbf9",
+      "destination": "documents/devices/scout_mini/DEPLOYMENT_RECORD.md#deploy-records-ugv-001-deployment-md"
+    },
+    "deploy/records/UGV_003/DEPLOYMENT.md": {
+      "sha256": "6160a5e52d0560da095146b8f19048c733f23d4da946158367e2e19aa18eb6fb",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md#deploy-records-ugv-003-deployment-md"
+    },
+    "deploy/records/UGV_004/DEPLOYMENT.md": {
+      "sha256": "e9d89c9e5f21da05a48d1e521c2e10e66c50782e6efa8a87c0b68c6f52be76f9",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md#deploy-records-ugv-004-deployment-md"
+    },
+    "deploy/scout_mini/config/device.yaml": {
+      "sha256": "35a82351ba6bebfa836aa017f26a47a6c2b7edd1dc8d199893a3f83252394bf5",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/device.yaml"
+    },
+    "deploy/scout_mini/config/epgeneral_mqtav.yaml": {
+      "sha256": "e6530eade9a7cd2180dcb0e02a10f1c5aea4fa516d335ecc033f1be0d25c849e",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/scout_mini/config/map_stream.yaml": {
+      "sha256": "452df1faaa4304a0eba3bfc66c640993c642ef54d7aa4854ffcb47526faf5f1f",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/map_stream.yaml"
+    },
+    "deploy/scout_mini/config/relocalization.yaml": {
+      "sha256": "82819d1720ddbc58f3cba7333ad94b5310d41d7318016130e4b561651f3a9d4c",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/relocalization.yaml"
+    },
+    "deploy/scout_mini/config/task_control.yaml": {
+      "sha256": "3ebda1124132f8dc1f0a066e0b23e1fc500a51224960f37cc77a5ac21689bdcc",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/task_control.yaml"
+    },
+    "deploy/scout_mini/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/timesyncd-ccs.conf"
+    },
+    "deploy/scout_mini/config/udp_telemetry.yaml": {
+      "sha256": "775aa15f0230c474f291658ac0d666364cd6ccf121515e0f83fbb131c350f912",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/udp_telemetry.yaml"
+    },
+    "deploy/scout_mini/config/video.yaml": {
+      "sha256": "b19a4b3a843df02969a71d453ef8b89839eab9251c339e45044c409db05eef58",
+      "destination": "devices/scout_mini/profiles/scout_mini/config/video.yaml"
+    },
+    "deploy/scout_mini/launch/scout_livox_base.launch": {
+      "sha256": "a3d0ab553c437b7605b079c89f5012c5b2f227ca3a44c8c83b3ddc2187ccbf8d",
+      "destination": "devices/scout_mini/profiles/scout_mini/launch/scout_livox_base.launch"
+    },
+    "deploy/scout_mini/launch/scout_mini_bringup.launch": {
+      "sha256": "5714059ea5d3fb411147f3fcf707bb446b507199524d80e2778798cc51e3082d",
+      "destination": "devices/scout_mini/profiles/scout_mini/launch/scout_mini_bringup.launch"
+    },
+    "deploy/scout_mini/patches/scout_messenger_bms.patch": {
+      "sha256": "444dc6b1f23bb0b63dd0d3e0262c254cb5c74a887791af397a941cbc3a5384dc",
+      "destination": "devices/scout_mini/profiles/scout_mini/patches/scout_messenger_bms.patch"
+    },
+    "deploy/wheeltec_r550p/config/device.yaml": {
+      "sha256": "7899c3105c604b84ba1c3e501cfd0a35410782caf454dcffa8eae86c6ea983ef",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/device.yaml"
+    },
+    "deploy/wheeltec_r550p/config/epgeneral_mqtav.yaml": {
+      "sha256": "e3a2e445590d0d6ba86a3e566ddd680ad4fdfd2a376683942ecb01eb7f20a277",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/wheeltec_r550p/config/map_stream.yaml": {
+      "sha256": "435db9abc223aed197e7db68600d4a93898e800f188ba3f9c98b26158a33225a",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/map_stream.yaml"
+    },
+    "deploy/wheeltec_r550p/config/relocalization.yaml": {
+      "sha256": "099ac7d345c5d15c6b0ca9041c7940aeeaaa7e0b2999dac624765a1fdf405ca9",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/relocalization.yaml"
+    },
+    "deploy/wheeltec_r550p/config/task_control.yaml": {
+      "sha256": "5fad2f1623de0348858b3af0e0ceffc2607e16d7e610c48fb18c83f4563495cd",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/task_control.yaml"
+    },
+    "deploy/wheeltec_r550p/config/timesyncd-ccs.conf": {
+      "sha256": "aef44bbe1e0a95759bf3f14b868a296bdebff029ab8e9c1959e92ef62fc17d34",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/timesyncd-ccs.conf"
+    },
+    "deploy/wheeltec_r550p/config/udp_telemetry.yaml": {
+      "sha256": "661ce18528537f63c407bd02764bd83f05dacf9adcbeb7faec8548f64dc1d349",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/udp_telemetry.yaml"
+    },
+    "deploy/wheeltec_r550p/config/video.yaml": {
+      "sha256": "6b96f8ef6acc51b5809b245e8307ae9a0554e6af5b6b73a23b83771224802103",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/config/video.yaml"
+    },
+    "deploy/wheeltec_r550p/driver_patch/.gitattributes": {
+      "sha256": "98f9cbd4670ffe2e10fad3e3209ffbc1e747bbde8728b906f7718e6191ec5bb1",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/driver_patch/.gitattributes"
+    },
+    "deploy/wheeltec_r550p/driver_patch/baseline.sha256": {
+      "sha256": "d1c9e07ad722ad1b03d3b4b74b331781e95eed9b17f2eeaf31abec71979f9d54",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/driver_patch/baseline.sha256"
+    },
+    "deploy/wheeltec_r550p/driver_patch/manage_driver_patch.sh": {
+      "sha256": "f5305adb52c30ea11efc25894e1d0399522d7e01e4a208a4be817af70ff92440",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/driver_patch/manage_driver_patch.sh"
+    },
+    "deploy/wheeltec_r550p/driver_patch/patched.sha256": {
+      "sha256": "340a3a7c0f9b83fe1b20ac43eb137c4a57d5549b37c14bc1b2d65160c8e07519",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/driver_patch/patched.sha256"
+    },
+    "deploy/wheeltec_r550p/driver_patch/README.md": {
+      "sha256": "7f701098399ae71d8925c92c77da008b7942d0310efa456158078cc02e8e4357",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md#deploy-wheeltec-r550p-driver-patch-readme-md"
+    },
+    "deploy/wheeltec_r550p/driver_patch/turn_on_wheeltec_robot_control_authority.patch": {
+      "sha256": "e253acf4e7a60b444d2dccd45f3ddccdf0df9c1e6682a6c7cb949c9dd2b34f83",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/driver_patch/turn_on_wheeltec_robot_control_authority.patch"
+    },
+    "deploy/wheeltec_r550p/launch/wheeltec_r550p_bringup.launch": {
+      "sha256": "e73b4a97cc1d431fdf9733557c0f3944f0a1dc318de703e71125b157c5953de8",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/launch/wheeltec_r550p_bringup.launch"
+    },
+    "deploy/wheeltec_r550p/safety_patch/.gitattributes": {
+      "sha256": "5ea2c69944384b624d94cfc4fbbefea8d6ab03ba61e0a4436c638fe967457e56",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/safety_patch/.gitattributes"
+    },
+    "deploy/wheeltec_r550p/safety_patch/baseline.sha256": {
+      "sha256": "a5abac03a8edafa8abf55e6408763273e9027fbd1789e4025a79430443b7fc1e",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/safety_patch/baseline.sha256"
+    },
+    "deploy/wheeltec_r550p/safety_patch/manage_safety_patch.sh": {
+      "sha256": "f6618c742097660edde51417a6134491f90d7713bc77591b9dab3df59d15ebd2",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/safety_patch/manage_safety_patch.sh"
+    },
+    "deploy/wheeltec_r550p/safety_patch/patched.sha256": {
+      "sha256": "7b7126a021c5cbea138ac1c2a76e7a4e239017d53eb8b79b037d90278041d379",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/safety_patch/patched.sha256"
+    },
+    "deploy/wheeltec_r550p/safety_patch/README.md": {
+      "sha256": "fb67b24c6b1483ab8a4e5db62518c867cc83606c16d5a1dfcfed139cbe280987",
+      "destination": "documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md#deploy-wheeltec-r550p-safety-patch-readme-md"
+    },
+    "deploy/wheeltec_r550p/safety_patch/wheeltec_safety_snapshot_and_reverse.patch": {
+      "sha256": "af01cf259dba8b27adf1a173f37ba592369067f1252df2ced98bca74155060c2",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p/safety_patch/wheeltec_safety_snapshot_and_reverse.patch"
+    },
+    "deploy/wheeltec_r550p_02/config/device.yaml": {
+      "sha256": "99607f3679a775b985cc7cd6d03401cd082c5a4a198087849ea274d938a93f49",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/device.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/epgeneral_mqtav.yaml": {
+      "sha256": "d13ca8d9d64be0c5116d0bd99134ab4e67203b00c0ca9474b307a690c0abd380",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/epgeneral_mqtav.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/map_stream.yaml": {
+      "sha256": "967ef0326e8cec90f27faa673b1c92cffa869aacc0c6637da0158807fc8a1fa1",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/map_stream.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/relocalization.yaml": {
+      "sha256": "007e9be1a29ad56b9f471db5da21509b880444be40e0d768a5fc44d14e5354cb",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/relocalization.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/task_control.yaml": {
+      "sha256": "0654e27590b03ad499ac33bf904edb3d6dd5a656fc53ac9f4beacfe1a2015df7",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/task_control.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/udp_telemetry.yaml": {
+      "sha256": "8daf99620375ae624bb163f5c1c83205e13bf577817e46f7be53377434221d90",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/udp_telemetry.yaml"
+    },
+    "deploy/wheeltec_r550p_02/config/video.yaml": {
+      "sha256": "6a03add4788539eba4b22c96b20401dab0e81a9fcd00d6662cd4e8f9b541c4a8",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/config/video.yaml"
+    },
+    "deploy/wheeltec_r550p_02/launch/wheeltec_r550p_02_base.launch": {
+      "sha256": "3abb85e0da4ddcf7e2e41ab42613f77a38d994a80f347500a66e5b48f761c1e2",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/launch/wheeltec_r550p_02_base.launch"
+    },
+    "deploy/wheeltec_r550p_02/launch/wheeltec_r550p_02_bringup.launch": {
+      "sha256": "36b6d7e39672cc83b7d71911cf0a370c987d3f77d46ac397a8c40b686fe87138",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/launch/wheeltec_r550p_02_bringup.launch"
+    },
+    "deploy/wheeltec_r550p_02/scripts/ccs_sntp_sync.py": {
+      "sha256": "e7bc6d3e1cf06a441e1963c74b63cb07807a92adfa4d4e1642fcb444b045df3a",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/scripts/ccs_sntp_sync.py"
+    },
+    "deploy/wheeltec_r550p_02/scripts/ccs_wheeltec_preflight.py": {
+      "sha256": "0a5591366f6143cf6fafb04b60f844992c7992689bb2590f0bef3d712ef86e3b",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/scripts/ccs_wheeltec_preflight.py"
+    },
+    "deploy/wheeltec_r550p_02/scripts/ccs_wheeltec_readiness.py": {
+      "sha256": "eeb73ac9ab0ef57ad17a17e8be6609c05229a84812fcdcb1b665943b106e4d33",
+      "destination": "devices/wheeltec_r550p/profiles/wheeltec_r550p_02/scripts/ccs_wheeltec_readiness.py"
+    },
+    "EPGeneral_device_config/config/device.yaml": {
+      "sha256": "567f16a36b1125ecdf3fbb697aed72a6a8043c6a2a16d5372bc56990b3c628ea",
+      "destination": "EPGeneral_device_config/config/device.yaml"
+    },
+    "EPGeneral_device_config/config/epgeneral_mqtav.yaml": {
+      "sha256": "38bb1d2f8a2042f7f2bc8d1f039ab7ac725e3603daf449fba67d5a60879cb3d0",
+      "destination": "EPGeneral_device_config/config/epgeneral_mqtav.yaml"
+    },
+    "EPGeneral_device_config/config/map_stream.yaml": {
+      "sha256": "8d488268eab87e0b753b5e60f48868f9b647a5cc9a15218ee20c3d32bc5b875d",
+      "destination": "EPGeneral_device_config/config/map_stream.yaml"
+    },
+    "EPGeneral_device_config/config/relocalization.yaml": {
+      "sha256": "3ffeb97b6337ca28a83b6c980a1b9e445b275fd636978b386bddaa69a714ef7b",
+      "destination": "EPGeneral_device_config/config/relocalization.yaml"
+    },
+    "EPGeneral_device_config/config/task_control.yaml": {
+      "sha256": "59bb80ca02fd7c4dd9ebdff6f2d0bdca1f0bbde730b97d4c9b6fb11e91c19938",
+      "destination": "EPGeneral_device_config/config/task_control.yaml"
+    },
+    "EPGeneral_device_config/config/udp_telemetry.yaml": {
+      "sha256": "56b9b3ea3eaf96609858aaaf08817de23686ce32b4493e58336a41c7905646ee",
+      "destination": "EPGeneral_device_config/config/udp_telemetry.yaml"
+    },
+    "EPGeneral_device_config/config/video.yaml": {
+      "sha256": "fab9827de807bc268770b97f86ac3763c92da696939e4678631f5e6b3bb8cfc7",
+      "destination": "EPGeneral_device_config/config/video.yaml"
+    },
+    "EPGeneral_go2_integration/launch/bringup.launch": {
+      "sha256": "c0e1e7b02a355b599d221c21eafbb4544c5603bd46ae6ada28e859b24fc436cd",
+      "destination": "devices/go2/EPGeneral_go2_integration/launch/bringup.launch"
+    },
+    "EPGeneral_go2_integration/launch/mapping_fast_lio.launch": {
+      "sha256": "12352ec3fa0e06c94641ce4f1c0baeb4179ab020f80c92c1e79ee8fb75ca2a9e",
+      "destination": "devices/go2/EPGeneral_go2_integration/launch/mapping_fast_lio.launch"
+    },
+    "EPGeneral_go2_integration/launch/navigation.launch": {
+      "sha256": "ffb7b16ac2cdaa9467c9d7777e8d64ca181155738babf99da8efe0d36f07e030",
+      "destination": "devices/go2/EPGeneral_go2_integration/launch/navigation.launch"
+    },
+    "EPGeneral_go2_integration/launch/navigation_guard.launch": {
+      "sha256": "661fabcf8b3c50bf1a4044eab4acb408c2484976cb1857560da6491bc662885e",
+      "destination": "devices/go2/EPGeneral_go2_integration/launch/navigation_guard.launch"
+    },
+    "EPGeneral_go2_integration/scripts/go2_stack_guard.py": {
+      "sha256": "ba9ce5c4c131cc7a8e2f96752b9eaabd9212c80143a47933b67b30bab095ec9d",
+      "destination": "devices/go2/EPGeneral_go2_integration/scripts/go2_stack_guard.py"
+    },
+    "EPGeneral_go2_integration/test/test_go2_stack_guard.py": {
+      "sha256": "1e77bfc6a44a4f63e62c83ca3cdf274dfa89f2b4838d2497d91c376c950d4d27",
+      "destination": "devices/go2/EPGeneral_go2_integration/test/test_go2_stack_guard.py"
+    },
+    "EPGeneral_ground_air_control/launch/ground_air_task_control.launch": {
+      "sha256": "989299ccfbdaea92e244c082f1e363631fc035bc079fb6e576a896b5a7fcd9bc",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/launch/ground_air_task_control.launch"
+    },
+    "EPGeneral_ground_air_control/launch/relocalization_control.launch": {
+      "sha256": "66b974590430b2d5ed587e90221e0719d49f4bdb225d683d00fc149f575c5519",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/launch/relocalization_control.launch"
+    },
+    "EPGeneral_ground_air_control/scripts/ground_air_initial_pose_adapter_node.py": {
+      "sha256": "02e550ebb695296f60d18edfba348d3896f7b5854273e865c0a2f208d30bd75e",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/scripts/ground_air_initial_pose_adapter_node.py"
+    },
+    "EPGeneral_ground_air_control/scripts/ground_air_relocalization_stage_node.py": {
+      "sha256": "a5ad097a7641eb803cafeb85514908f65b3a01b54e3d92a2c91177ec8e388f6e",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/scripts/ground_air_relocalization_stage_node.py"
+    },
+    "EPGeneral_ground_air_control/scripts/ground_air_stage_manager_node.py": {
+      "sha256": "f81938813de92d6dee96cbc3a7c887d0a6d66cbfa3d08ec7f3f545b6aa573266",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/scripts/ground_air_stage_manager_node.py"
+    },
+    "EPGeneral_ground_air_control/scripts/ground_air_task_adapter_node.py": {
+      "sha256": "9aed8913035841e2f677e58d6692fd53d20255514c98a599fcd99716076196e1",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/scripts/ground_air_task_adapter_node.py"
+    },
+    "EPGeneral_ground_air_control/test/test_control.py": {
+      "sha256": "b5e22a06d03f16eb884ebaad5eb702c96089d90bb2c406028a719da77be42c5c",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/test/test_control.py"
+    },
+    "EPGeneral_ground_air_control/test/test_launch_contract.py": {
+      "sha256": "0227da2b0dd168915e7791d11bdee0ac3a34b34273f415314b3ae14600ec9ad9",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/test/test_launch_contract.py"
+    },
+    "EPGeneral_ground_air_control/test/test_task_adapter.py": {
+      "sha256": "f63c00a67766d181c1794be2069d8822286ac61a1e8883e2327694919e9401ac",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/test/test_task_adapter.py"
+    },
+    "EPGeneral_ground_air_control/test/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/test/__init__.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/initial_pose_adapter.py": {
+      "sha256": "bdfa18744dc0675fcefc3f7b30a3993b814a795da00c8418302983d878c965f0",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/initial_pose_adapter.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/stage_bridge.py": {
+      "sha256": "2e89a980a39f3508d6af3e54a323370aa7ecd180f2c7d370237229df938a2891",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/stage_bridge.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/system_stage_core.py": {
+      "sha256": "e297fca266d33fad9d1764ee9bfc4cfe3400b15cd8c4932862f682bde8f609b0",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/system_stage_core.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/system_stage_runtime.py": {
+      "sha256": "abde0ac3ce2d5f7dd7793d3f879a548951bd694ed71fc3238e3dde42493ae229",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/system_stage_runtime.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/task_adapter.py": {
+      "sha256": "ad418b7f6c88a7aa763a18c885bfa1c497509cc52b0153d9917ee5b74c3cad0e",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/task_adapter.py"
+    },
+    "EPGeneral_ground_air_control/src/epgeneral_ground_air_control/__init__.py": {
+      "sha256": "8f2bdaaf347a45172eaea372244f0ccfdec54d271b3a55725b03333749d2e62b",
+      "destination": "devices/ground_air_agv/EPGeneral_ground_air_control/src/epgeneral_ground_air_control/__init__.py"
+    },
+    "EPGeneral_map_stream/launch/epgeneral_map_stream.launch": {
+      "sha256": "7f9a12f331d61668e5f7b7f138b7f3c07e66101e6eda406a7c6197727ecbae0e",
+      "destination": "EPGeneral_map_stream/launch/epgeneral_map_stream.launch"
+    },
+    "EPGeneral_map_stream/launch/fast_lio_mapping.launch": {
+      "sha256": "1fccfbb1c7f311cd7a750b24ecc246235503409f8835e89b3a2851ace4580593",
+      "destination": "EPGeneral_map_stream/launch/fast_lio_mapping.launch"
+    },
+    "EPGeneral_map_stream/launch/mapping_prerequisites.launch": {
+      "sha256": "06be2279e71450ce0ec01999b02a7fe0e84c43f6a4db56453fc9c69a9500e8f4",
+      "destination": "EPGeneral_map_stream/launch/mapping_prerequisites.launch"
+    },
+    "EPGeneral_map_stream/launch/mapping_prerequisites_go2_robot2.launch": {
+      "sha256": "b56eeaeacd3b653a960f784d42abeccd969fb9ce8f149c772fe9e499cbdc341e",
+      "destination": "EPGeneral_map_stream/launch/mapping_prerequisites_go2_robot2.launch"
+    },
+    "EPGeneral_map_stream/launch/mapping_prerequisites_go2_robot3.launch": {
+      "sha256": "b56eeaeacd3b653a960f784d42abeccd969fb9ce8f149c772fe9e499cbdc341e",
+      "destination": "EPGeneral_map_stream/launch/mapping_prerequisites_go2_robot3.launch"
+    },
+    "EPGeneral_map_stream/scripts/abort_fast_lio.sh": {
+      "sha256": "5433cad4e247030ff720f5bb37442f26a68d47f91246007bc9c1a247433af4b0",
+      "destination": "EPGeneral_map_stream/scripts/abort_fast_lio.sh"
+    },
+    "EPGeneral_map_stream/scripts/check_version.py": {
+      "sha256": "adbf3907c4c156b4c5ee552a4acbe4a1b4e31b1fe08d717cb90d2aa21955ea3e",
+      "destination": "EPGeneral_map_stream/scripts/check_version.py"
+    },
+    "EPGeneral_map_stream/scripts/epgeneral_map_stream_node.py": {
+      "sha256": "2ca05592b64263d61e81f7507a3a79210de3af7b55d2c0257f07a775d1a2783a",
+      "destination": "EPGeneral_map_stream/scripts/epgeneral_map_stream_node.py"
+    },
+    "EPGeneral_map_stream/scripts/generate_pgm.sh": {
+      "sha256": "3451cddceacfbddf049adfdff61b16075a034cffbe45eff92ced233b976350c2",
+      "destination": "EPGeneral_map_stream/scripts/generate_pgm.sh"
+    },
+    "EPGeneral_map_stream/scripts/ground_air_mapping_stack.sh": {
+      "sha256": "fb1dca36aeabdfaff96467717bd64a6fbc69ca6226f8004569aed9ccac003eac",
+      "destination": "EPGeneral_map_stream/scripts/ground_air_mapping_stack.sh"
+    },
+    "EPGeneral_map_stream/scripts/ground_air_save_mapping.sh": {
+      "sha256": "9f6c327f012bd4e112c62987b66a71341dfb2affbb735f4b1647a682a1c48eb4",
+      "destination": "EPGeneral_map_stream/scripts/ground_air_save_mapping.sh"
+    },
+    "EPGeneral_map_stream/scripts/ground_air_stage_client.py": {
+      "sha256": "385427e6614634e7b7a9b5eaefc118ec527c73bda97d6a3d938c19df99d97d9e",
+      "destination": "EPGeneral_map_stream/scripts/ground_air_stage_client.py"
+    },
+    "EPGeneral_map_stream/scripts/save_map.sh": {
+      "sha256": "f194d272a9611281027afd3173fdf5206b7ceae38a55a1d3929e94e76e222cc2",
+      "destination": "EPGeneral_map_stream/scripts/save_map.sh"
+    },
+    "EPGeneral_map_stream/scripts/scout_finalize_map.sh": {
+      "sha256": "dbdd0ac55f6c533caa9246271cc304337e841cca4456e05bb5d3b967414efce0",
+      "destination": "EPGeneral_map_stream/scripts/scout_finalize_map.sh"
+    },
+    "EPGeneral_map_stream/scripts/scout_mapping_stack.sh": {
+      "sha256": "c9ecbee35d2fcc81982a5f8a28abef0932fd11cf3f8aae68a5df5c782c07b556",
+      "destination": "EPGeneral_map_stream/scripts/scout_mapping_stack.sh"
+    },
+    "EPGeneral_map_stream/scripts/start_fast_lio.sh": {
+      "sha256": "6a923a220d52820060baf9e949bd486192d65c103062c54d64979af7cf3e4b73",
+      "destination": "EPGeneral_map_stream/scripts/start_fast_lio.sh"
+    },
+    "EPGeneral_map_stream/scripts/stop_fast_lio.sh": {
+      "sha256": "229f1440009d1eec2ac04d93002fc3bc217d8fff15c0acf5b92191d778fb8150",
+      "destination": "EPGeneral_map_stream/scripts/stop_fast_lio.sh"
+    },
+    "EPGeneral_map_stream/test/test_artifacts.py": {
+      "sha256": "1b4cd51b4b98248e9378121fce5f582faa0741736c17c3aa6adef6b5a3af5dce",
+      "destination": "EPGeneral_map_stream/test/test_artifacts.py"
+    },
+    "EPGeneral_map_stream/test/test_config.py": {
+      "sha256": "fce640b29166b215fb4ee62f21f0e9fda21029fc2566db36f15ac5a7effcef45",
+      "destination": "EPGeneral_map_stream/test/test_config.py"
+    },
+    "EPGeneral_map_stream/test/test_ground_air_backend.py": {
+      "sha256": "d135ec187bcf8eb1f5d126a103200c1b090ca1bcda9d46239cbc771175b54a0f",
+      "destination": "EPGeneral_map_stream/test/test_ground_air_backend.py"
+    },
+    "EPGeneral_map_stream/test/test_ground_air_stage_client.py": {
+      "sha256": "8bf724309774f8fc6773d09917dab6e2a26299bee82917a0e55105085cd17e8d",
+      "destination": "EPGeneral_map_stream/test/test_ground_air_stage_client.py"
+    },
+    "EPGeneral_map_stream/test/test_ground_contract.py": {
+      "sha256": "b1da42170f4fc7b5efd90e8b1a4843aae50ba21ef2284f1cb973731a6cdb90b2",
+      "destination": "tests/test_edge_map_ground_contract.py",
+      "destination_repository": "https://github.com/AADCL/CCS_dev"
+    },
+    "EPGeneral_map_stream/test/test_node.py": {
+      "sha256": "cc3830869c84c1c08807b97722d70bcc51ebe1ab413ee2b07ef23535a1509753",
+      "destination": "EPGeneral_map_stream/test/test_node.py"
+    },
+    "EPGeneral_map_stream/test/test_paths.py": {
+      "sha256": "593df02bb38615d9e4e2a8c8992ae0d17477a5a40e29494bd305c9a30a3f011f",
+      "destination": "EPGeneral_map_stream/test/test_paths.py"
+    },
+    "EPGeneral_map_stream/test/test_processing.py": {
+      "sha256": "4d942f369d91f0d79bb6f8ab0fd927084de46ce9de676d8272c95e182df870da",
+      "destination": "EPGeneral_map_stream/test/test_processing.py"
+    },
+    "EPGeneral_map_stream/test/test_protocol.py": {
+      "sha256": "4311b2102d6b579d9c4608382e3a98c0ab38b86e5a2655617ac3161b55d257cf",
+      "destination": "EPGeneral_map_stream/test/test_protocol.py"
+    },
+    "EPGeneral_map_stream/test/test_scout_backend.py": {
+      "sha256": "f2cb7c79b0269c451c0728a3fff4859f7ca0184ec6c78728dbe89f71bc84d77d",
+      "destination": "EPGeneral_map_stream/test/test_scout_backend.py"
+    },
+    "EPGeneral_map_stream/test/test_scripts.py": {
+      "sha256": "4b203fa71b12939435a03adff0d4ffa5638b02334a3c5df83d2025752c6d47ff",
+      "destination": "EPGeneral_map_stream/test/test_scripts.py"
+    },
+    "EPGeneral_map_stream/test/test_udp_integration.py": {
+      "sha256": "1d7b1c5acd1616cca257509ac8666bc08ab5e983f4a0ef6944afe66034d25ad2",
+      "destination": "EPGeneral_map_stream/test/test_udp_integration.py"
+    },
+    "EPGeneral_map_stream/test/test_version_and_entrypoint.py": {
+      "sha256": "a4afda42dff5e317778393d4e212911c58cd4a4237cfd8345b3608346b6e8165",
+      "destination": "EPGeneral_map_stream/test/test_version_and_entrypoint.py"
+    },
+    "EPGeneral_map_stream/test/__init__.py": {
+      "sha256": "56ffceca67af21f80cd843b971ac7bcd9240afbedbd97ae461343d3f8df18a19",
+      "destination": "EPGeneral_map_stream/test/__init__.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/artifacts.py": {
+      "sha256": "244dd234290348f9996d15756c0be27afc1ad103bedc2166b4d0c71d1efcb29c",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/artifacts.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/config.py": {
+      "sha256": "5b0902e1222d0b49170246edf1391f6e8780a6852f07a7cbd5a4cbfd1b374c74",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/config.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/node.py": {
+      "sha256": "df38387b2b3afc187ae504ac600e5d8ca36cf366f958bf258bc667c7b6319ff8",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/node.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/processing.py": {
+      "sha256": "d7d5f22846dd2ea597b391ff014fdbc61143969ca2bf16e9d37ef8088a94c913",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/processing.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/protocol.py": {
+      "sha256": "6c12dbf5d5a0f07ebc503d400ea301509d4d431a59b96fafe77bc459f189ef97",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/protocol.py"
+    },
+    "EPGeneral_map_stream/src/epgeneral_map_stream/__init__.py": {
+      "sha256": "02a499a723de61d26db1f7044e775f6b85a538aac5be0ad86915b353ea5f34d0",
+      "destination": "EPGeneral_map_stream/src/epgeneral_map_stream/__init__.py"
+    },
+    "epgeneral_mqtav/launch/epgeneral_mqtav.launch": {
+      "sha256": "b7cae2fe7353620bdd9669595d67a8d67d6440faa16384d1e770b4e28755676c",
+      "destination": "epgeneral_mqtav/launch/epgeneral_mqtav.launch"
+    },
+    "epgeneral_mqtav/scripts/check_version.py": {
+      "sha256": "8927de636ee1ae3beb84348bc58333ee0a284f056ed4035430c9dc007e131501",
+      "destination": "epgeneral_mqtav/scripts/check_version.py"
+    },
+    "epgeneral_mqtav/scripts/epgeneral_mqtav_node.py": {
+      "sha256": "4f8e24e03821586eaec55562240636060e2c26bf40181a1bb6db77ff533c7cd3",
+      "destination": "epgeneral_mqtav/scripts/epgeneral_mqtav_node.py"
+    },
+    "epgeneral_mqtav/test/test_config.py": {
+      "sha256": "c56c05e81f2b8f15ca9ec0b71cbfebc990095a303bbedc4c8da3bb0b7f978f12",
+      "destination": "epgeneral_mqtav/test/test_config.py"
+    },
+    "epgeneral_mqtav/test/test_logging.py": {
+      "sha256": "6f2ba1956466d0806b9ce0edca0a47eaf7986a394761b02e2b3792c8d2fe0b26",
+      "destination": "epgeneral_mqtav/test/test_logging.py"
+    },
+    "epgeneral_mqtav/test/test_mqtt_client.py": {
+      "sha256": "a026eef9053554e94314fac8b2621875728c3209005cc83733a045a3efc6eff9",
+      "destination": "epgeneral_mqtav/test/test_mqtt_client.py"
+    },
+    "epgeneral_mqtav/test/test_python_runtime.py": {
+      "sha256": "e7d0edbcd1fbbf9fe4064318be4dc9548605c26b64381ede2eabb229502839ec",
+      "destination": "epgeneral_mqtav/test/test_python_runtime.py"
+    },
+    "epgeneral_mqtav/test/test_ros_bridge.py": {
+      "sha256": "ad7d6ad6bd73178f9b98d9d667674569054cd634feb844700a758c81ca8ce611",
+      "destination": "epgeneral_mqtav/test/test_ros_bridge.py"
+    },
+    "epgeneral_mqtav/test/test_state.py": {
+      "sha256": "7910e53af34452af0559bb9e4719fab74cd84563a489e8a6ba07fd86731f06de",
+      "destination": "epgeneral_mqtav/test/test_state.py"
+    },
+    "epgeneral_mqtav/test/test_version.py": {
+      "sha256": "c793ef0e5c2338fde6e57dfacf00e30445ad1f137b37465d80aa482c4c4b6f0b",
+      "destination": "epgeneral_mqtav/test/test_version.py"
+    },
+    "epgeneral_mqtav/test/__init__.py": {
+      "sha256": "41249e5fc496e8c5ca7befef22c87407202320f5e2e6b463b8e58607e87eea9c",
+      "destination": "epgeneral_mqtav/test/__init__.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/config.py": {
+      "sha256": "91349ebbc50c7fbd0dcd089ae7e13e8e2bb392d03eb7293754d7cd76177ebc53",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/config.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/durable_logging.py": {
+      "sha256": "26a49d893d8c71bc36c78447c744ac0e186b3b802fc0d76ab6bd98588b00f8ee",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/durable_logging.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/mqtt_client.py": {
+      "sha256": "1e42b1d8a783d666e2752bf13827aa0472d0194b0660ce44b4afe604e8e520b0",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/mqtt_client.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/node.py": {
+      "sha256": "260afedcb3f3186ffc92e7516826f52b55acb69d49ddbbc4aaaeb1b286fa588a",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/node.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/ros_bridge.py": {
+      "sha256": "31f08ad095638b9331d6790ed1a53377c8e3827eae293a6a01f2181c386528bb",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/ros_bridge.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/state.py": {
+      "sha256": "abf14f12f5f7420aa535bd76bfd60940c7e05f095b3cc0f2a847569b66af6c68",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/state.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/version.py": {
+      "sha256": "365f5a43a97242568cf6a9a9457b247e374f2108b19d0774e09abc46d2c7d5d6",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/version.py"
+    },
+    "epgeneral_mqtav/src/epgeneral_mqtav/__init__.py": {
+      "sha256": "20215298c3e0aa1b9cd639576fe169fbe651176f74cdc16e65f69908b2ae575f",
+      "destination": "epgeneral_mqtav/src/epgeneral_mqtav/__init__.py"
+    },
+    "EPGeneral_relocalization/launch/epgeneral_relocalization.launch": {
+      "sha256": "eb9e2ce74a026fc7f98258aedff514fbce54abc9b4d42f46712138576acebf38",
+      "destination": "EPGeneral_relocalization/launch/epgeneral_relocalization.launch"
+    },
+    "EPGeneral_relocalization/launch/relocalization_map_server.launch": {
+      "sha256": "85b578c6114e073c3c6735ab79e151d919a68b9d027c393def9eb41736e0fd43",
+      "destination": "EPGeneral_relocalization/launch/relocalization_map_server.launch"
+    },
+    "EPGeneral_relocalization/scripts/check_version.py": {
+      "sha256": "33ea8cb8c4f5c83f7670ce29ab77931737e690b592fd70bcee2690299329d369",
+      "destination": "EPGeneral_relocalization/scripts/check_version.py"
+    },
+    "EPGeneral_relocalization/scripts/epgeneral_relocalization_node.py": {
+      "sha256": "21cab62e10c16e5ce1d25392020b83683722e21e1002fd599a049ba7051caa2b",
+      "destination": "EPGeneral_relocalization/scripts/epgeneral_relocalization_node.py"
+    },
+    "EPGeneral_relocalization/test/test_core.py": {
+      "sha256": "efddd0b37ea8bbf074b8f4a0c76d69552b0ea0816cb3cf02078bbc76577c9781",
+      "destination": "EPGeneral_relocalization/test/test_core.py"
+    },
+    "EPGeneral_relocalization/test/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "destination": "EPGeneral_relocalization/test/__init__.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/artifacts.py": {
+      "sha256": "1366d7455e04e879d9b854046e8c0d56e524ba4a93da437e3758166ff606777b",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/artifacts.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/config.py": {
+      "sha256": "92cc87bd694a8534d67b180b0e91b0f089ece0972bacc6fec2d04236145f5d23",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/config.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/node.py": {
+      "sha256": "b4108425f176be6ebf44d780249014723fd8776438d20930b10b3d8a0af2bb63",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/node.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/protocol.py": {
+      "sha256": "d533b786cd3dba49ac9bbae8ec9e621e2cb82b653ec88ee4e936f9d2f6593dd1",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/protocol.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/ros_bridge.py": {
+      "sha256": "0bf8231aeb0e2f0044e842d6b0dcef7dae0fabeeb22524c2e08cbc5f2e1dcdc0",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/ros_bridge.py"
+    },
+    "EPGeneral_relocalization/src/epgeneral_relocalization/__init__.py": {
+      "sha256": "571e3b8bc40d79724db94cecb6a5ae53a782584e71b5a63492037e1a6fddfe01",
+      "destination": "EPGeneral_relocalization/src/epgeneral_relocalization/__init__.py"
+    },
+    "EPGeneral_task_control/launch/epgeneral_task_control.launch": {
+      "sha256": "27ad07dc69df42b64c92ff1f0f68c98cf4df1de86e62011667913945834eae48",
+      "destination": "EPGeneral_task_control/launch/epgeneral_task_control.launch"
+    },
+    "EPGeneral_task_control/launch/navigation_task_control.launch": {
+      "sha256": "f9620d57e1b0000663dcf3f33016524474a0c81728a4ba1138cfb62c64f16d73",
+      "destination": "EPGeneral_task_control/launch/navigation_task_control.launch"
+    },
+    "EPGeneral_task_control/launch/scout_task_control.launch": {
+      "sha256": "b5eb52d0547308eb04f2aed55e81e692e522c279efa5064d04caff1ef7186c1c",
+      "destination": "EPGeneral_task_control/launch/scout_task_control.launch"
+    },
+    "EPGeneral_task_control/launch/wheeltec_ccs_2d_navigation.launch": {
+      "sha256": "24ad7947c7ef9a8a97a1dfd908338869ddb3be103370343d598c00b015ecc8b8",
+      "destination": "EPGeneral_task_control/launch/wheeltec_ccs_2d_navigation.launch"
+    },
+    "EPGeneral_task_control/launch/wheeltec_task_control.launch": {
+      "sha256": "33f787e046af968ce13ff5626b379ac105ef3afc69e33843a2a0229e1b27f608",
+      "destination": "EPGeneral_task_control/launch/wheeltec_task_control.launch"
+    },
+    "EPGeneral_task_control/msg/TaskExecutionCommand.msg": {
+      "sha256": "fbebad103472aa6b299e05d0ec86726a9c01732ad5743fcdeca173f1c483fc5f",
+      "destination": "EPGeneral_task_control/msg/TaskExecutionCommand.msg"
+    },
+    "EPGeneral_task_control/msg/TaskExecutionFeedback.msg": {
+      "sha256": "7a6cf8cb9a16a731388e8c4500f454c4b592b51f866c433ddb9341f45eb7a87f",
+      "destination": "EPGeneral_task_control/msg/TaskExecutionFeedback.msg"
+    },
+    "EPGeneral_task_control/scripts/check_version.py": {
+      "sha256": "f00d7db484ad2fd248ed00d8108cdf3328774c4e95cb2e930d0f0376ec95426f",
+      "destination": "EPGeneral_task_control/scripts/check_version.py"
+    },
+    "EPGeneral_task_control/scripts/epgeneral_task_control_node.py": {
+      "sha256": "03c2e6aeec5adfa8179acabb07521422092256021e01aee56e121a31503137ae",
+      "destination": "EPGeneral_task_control/scripts/epgeneral_task_control_node.py"
+    },
+    "EPGeneral_task_control/scripts/navigation_adapter_node.py": {
+      "sha256": "79efd9bbff67a026e31fa419e00ffd736bffc25d8ee56e9d5b8efe0d50fbb716",
+      "destination": "EPGeneral_task_control/scripts/navigation_adapter_node.py"
+    },
+    "EPGeneral_task_control/scripts/scout_navigation_adapter_node.py": {
+      "sha256": "4b7917ec0413defb976d9460fd9140e72e9a82f8cdd50db6265e954c7a23db09",
+      "destination": "EPGeneral_task_control/scripts/scout_navigation_adapter_node.py"
+    },
+    "EPGeneral_task_control/scripts/wheeltec_control_authority_node.py": {
+      "sha256": "600ee22c19815f470d78bcd40c99af2429e3795b6f05aa6fff949063a0fde99b",
+      "destination": "EPGeneral_task_control/scripts/wheeltec_control_authority_node.py"
+    },
+    "EPGeneral_task_control/test/test_core.py": {
+      "sha256": "74533cf00f3ed0c9f927bc53d49512ee49d2927d3aaccb8f5908c43b10cfcbeb",
+      "destination": "EPGeneral_task_control/test/test_core.py"
+    },
+    "EPGeneral_task_control/test/test_go2_control_safety.py": {
+      "sha256": "2fd7c368ae6fc6155d427f0986901d1be0ea6803224338ef18588ef3bce3966c",
+      "destination": "EPGeneral_task_control/test/test_go2_control_safety.py"
+    },
+    "EPGeneral_task_control/test/test_ground_contract.py": {
+      "sha256": "ed60f59d9485261fd4241b50991694ed97f2540fe45ad30738d85abface15cba",
+      "destination": "tests/test_edge_task_ground_contract.py",
+      "destination_repository": "https://github.com/AADCL/CCS_dev"
+    },
+    "EPGeneral_task_control/test/test_node.py": {
+      "sha256": "b4a8029b29422be35ef06f6d1f30548a2bed8cd1a80933d78c329a9cace2f751",
+      "destination": "EPGeneral_task_control/test/test_node.py"
+    },
+    "EPGeneral_task_control/test/test_scout_adapter.py": {
+      "sha256": "b702590225e5834a39ae5ceb68bea66fa52b0a7ce06303c4412fc8f3055bd5b3",
+      "destination": "EPGeneral_task_control/test/test_scout_adapter.py"
+    },
+    "EPGeneral_task_control/test/test_udp_integration.py": {
+      "sha256": "bf392f8db982ac0e24a47fbcbb4559694335a7af712b8518223ad235e9058dcc",
+      "destination": "EPGeneral_task_control/test/test_udp_integration.py"
+    },
+    "EPGeneral_task_control/test/test_version.py": {
+      "sha256": "653749b3513fcd6329df30dbff86a4fb92dcbe73d62d38da226b3609d70b1e66",
+      "destination": "EPGeneral_task_control/test/test_version.py"
+    },
+    "EPGeneral_task_control/test/test_wheeltec_control.py": {
+      "sha256": "c4ed427bde9a9a63f76dff86d613e0afe2f3c1f58f7630b01699755e1f211a1f",
+      "destination": "EPGeneral_task_control/test/test_wheeltec_control.py"
+    },
+    "EPGeneral_task_control/test/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "destination": "EPGeneral_task_control/test/__init__.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/config.py": {
+      "sha256": "f945014b78713ee5c27a43ceeafb951de4cb865e79c36dd9bb34b95a13d9df91",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/config.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/control_safety.py": {
+      "sha256": "47d7d53429a26e74b408719b280b5f6f75a62d8bdf3d476847e9ab2aa93ac291",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/control_safety.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/mission_store.py": {
+      "sha256": "6705b9dcc52d25c57c03910a67a7abb2634418815ef1866cfc52b9a7a8d92b8d",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/mission_store.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/node.py": {
+      "sha256": "1ca5ba737580948e7344104e346c7e4588e561236becd52e529f8565ca4260e8",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/node.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/protocol.py": {
+      "sha256": "feed9df9602df4289a634534724d715231c910abcba91964a0f951689a23a403",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/protocol.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/scout_adapter.py": {
+      "sha256": "8c4a315d0ca82cb6b35b41ef0a5af9325624da2391fd399fdee35e2f2599346e",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/scout_adapter.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/storage.py": {
+      "sha256": "aa5b26cfd6e59392df0d7347c6bcc9aee10b5a9362400e030177fb93edfa2093",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/storage.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/wheeltec_control.py": {
+      "sha256": "f8c14ac9788f5d2fec01a6196c3e8208e23a9e3e3a873e4b149c97ea7b176879",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/wheeltec_control.py"
+    },
+    "EPGeneral_task_control/src/epgeneral_task_control/__init__.py": {
+      "sha256": "f50f10a7a73c63d08ea1c93b2bb2aa3ac2d084d88010bd00813ae0746bc32dc5",
+      "destination": "EPGeneral_task_control/src/epgeneral_task_control/__init__.py"
+    },
+    "EPGeneral_task_control/test/fixtures/device.yaml": {
+      "sha256": "9c0b3898907597c6a2fb9ded2d67d6b817b2ba1765c54cd8ca28498f79c2a828",
+      "destination": "EPGeneral_task_control/test/fixtures/device.yaml"
+    },
+    "EPGeneral_udp_telemetry/launch/epgeneral_udp_telemetry.launch": {
+      "sha256": "916c7bcd7de35ff7685cf669b7b90626bf50c10bf9fcb9bcdc0b049482cbdbd6",
+      "destination": "EPGeneral_udp_telemetry/launch/epgeneral_udp_telemetry.launch"
+    },
+    "EPGeneral_udp_telemetry/scripts/epgeneral_udp_telemetry_node.py": {
+      "sha256": "629a43ea45c514462ddf678c1541bf37a1648fd21f02d1d712c8e3f9b7c2b41d",
+      "destination": "EPGeneral_udp_telemetry/scripts/epgeneral_udp_telemetry_node.py"
+    },
+    "EPGeneral_udp_telemetry/test/test_config_and_smoothing.py": {
+      "sha256": "9a40cb6f1b4462aeaa5e5c6ebf1862c0bac2db88e77991e1c86347c21bf54d50",
+      "destination": "EPGeneral_udp_telemetry/test/test_config_and_smoothing.py"
+    },
+    "EPGeneral_udp_telemetry/test/test_node_isolation.py": {
+      "sha256": "34ce78f56904592fafe4e443c0260a4fb1c2c6051dec816eb04c64177c6262b1",
+      "destination": "EPGeneral_udp_telemetry/test/test_node_isolation.py"
+    },
+    "EPGeneral_udp_telemetry/test/test_source_entrypoint.py": {
+      "sha256": "c64e4a6654d2bad29902ef9e58428c85e8ab694bcd624257538f3e711ddcc900",
+      "destination": "EPGeneral_udp_telemetry/test/test_source_entrypoint.py"
+    },
+    "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/config.py": {
+      "sha256": "ab298217fcbeb182133797c9665b249e769bbdcf8fac0c0c9e77b4754e29d939",
+      "destination": "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/config.py"
+    },
+    "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/node.py": {
+      "sha256": "b01346ebebc6fb590fd392417576126b83ac0ed7374307ffd361fe26d29d0baa",
+      "destination": "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/node.py"
+    },
+    "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/protocol.py": {
+      "sha256": "ea1f8ea6fe11f0635a9ad9a2b5d8d62e026be65c617693deaf414f7bcb4c39fa",
+      "destination": "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/protocol.py"
+    },
+    "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/smoothing.py": {
+      "sha256": "453db65d96b3f1ee9bdd33321c4565033ada8850bfd1f4b5828a055b1ecfcac3",
+      "destination": "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/smoothing.py"
+    },
+    "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/__init__.py": {
+      "sha256": "b0d5085d8e23fae056d14349d5406593bd6342d3becaaf8d116148fe939070a6",
+      "destination": "EPGeneral_udp_telemetry/src/epgeneral_udp_telemetry/__init__.py"
+    },
+    "EPGeneral_video_srt/launch/epgeneral_realsense_d435i_srt.launch": {
+      "sha256": "92442be6e15e287343af65abbd301e5aae9a7d61d6fe32eb4ae8638a4308a176",
+      "destination": "EPGeneral_video_srt/launch/epgeneral_realsense_d435i_srt.launch"
+    },
+    "EPGeneral_video_srt/launch/epgeneral_video_srt.launch": {
+      "sha256": "c60e10a9dc48d10b7d153932f45ecc01dfbee2d0593170393511b32d5646ea12",
+      "destination": "EPGeneral_video_srt/launch/epgeneral_video_srt.launch"
+    },
+    "EPGeneral_video_srt/src/epgeneral_video_srt_node.cpp": {
+      "sha256": "385229a61e3402de42e714e0f10e5f8231fcaca0f2676631904d007ef78fa20f",
+      "destination": "EPGeneral_video_srt/src/epgeneral_video_srt_node.cpp"
+    }
+  },
+  "local_v51_launch_sha256": "8143724c4b009c29e8364c7722f1eb2a3e2be505dafcff5e66e4625623b409b3",
+  "notes": [
+    "ROS versions unchanged; common packages retained whole.",
+    "UGV_003 upstream launch preserved; local UGV_004 V5.1 launch receives an explicit filename."
+  ]
+}

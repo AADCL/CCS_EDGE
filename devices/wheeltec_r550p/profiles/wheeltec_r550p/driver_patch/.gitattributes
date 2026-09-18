@@ -1,0 +1,2 @@
+# The patch and SHA manifests preserve the verified device source byte-for-byte.
+*.patch whitespace=-blank-at-eol,-space-before-tab
