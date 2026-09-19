@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AADCL/CCS_dev/9365e741fa6cb7236ccd317d197a299a796f9c65/icons/lab_logo/logo.png" alt="AADCL" width="96">
+  <img src="documents/assets/aadcl-logo.png" alt="AADCL" width="96">
 </p>
 
 <h1 align="center">CCS_EDGE · 多异构智能体端侧功能包</h1>
