@@ -9,8 +9,8 @@ class PackageVersionTests(unittest.TestCase):
         init_text = (root / "src" / "epgeneral_map_stream" / "__init__.py").read_text(
             encoding="utf-8"
         )
-        self.assertEqual(package_version, "0.13.2")
-        self.assertIn('__version__ = "0.13.2"', init_text)
+        self.assertEqual(package_version, "0.13.3")
+        self.assertIn('__version__ = "0.13.3"', init_text)
 
     def test_relocalization_package_versions_match(self):
         root = Path(__file__).resolve().parents[1] / "EPGeneral_relocalization"

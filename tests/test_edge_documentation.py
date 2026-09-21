@@ -48,7 +48,7 @@ class EdgeDocumentationTests(unittest.TestCase):
     def test_all_56_yaml_files_have_parameter_coverage(self):
         reference = REFERENCE.read_text(encoding="utf-8")
         profiles = {"go2_edu", "go2_robot2", "go2_robot3", "ground_air_agv",
-                    "scout_mini", "wheeltec_r550p", "wheeltec_r550p_02"}
+                    "scout_mini", "wheeltec_r550p", "wheeltec_r550p_02", "uav_001"}
         config_names = {"device.yaml", "epgeneral_mqtav.yaml", "map_stream.yaml",
                         "relocalization.yaml", "task_control.yaml", "udp_telemetry.yaml",
                         "video.yaml"}
@@ -65,13 +65,13 @@ class EdgeDocumentationTests(unittest.TestCase):
             self.assertEqual({path.parent.parent.name for path in deployed}, profiles,
                              default.name)
             paths = [default] + deployed
-            self.assertEqual(len(paths), 8, default.name)
+            self.assertEqual(len(paths), 9, default.name)
             for path in paths:
                 count += 1
                 config = yaml.safe_load(path.read_text(encoding="utf-8"))
                 self.assertFalse(set(leaf_keys(config)) - documented,
                                  f"{path}: {set(leaf_keys(config)) - documented}")
-        self.assertEqual(count, 56)
+        self.assertEqual(count, 63)
 
     def test_all_package_readmes_and_versions_are_navigable(self):
         overview = (EDGE / "README.md").read_text(encoding="utf-8")
@@ -80,7 +80,7 @@ class EdgeDocumentationTests(unittest.TestCase):
             "EPGeneral_device_config", "EPGeneral_map_stream", "epgeneral_mqtav",
             "EPGeneral_relocalization", "EPGeneral_ground_air_control",
             "EPGeneral_task_control", "EPGeneral_go2_integration",
-            "EPGeneral_udp_telemetry", "EPGeneral_video_srt",
+            "EPGeneral_udp_telemetry", "EPGeneral_video_srt", "EPGeneral_uav_integration",
         })
         for manifest in manifests:
             tree = ElementTree.parse(manifest).getroot()

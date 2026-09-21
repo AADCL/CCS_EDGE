@@ -830,3 +830,7 @@ GO2_3 正常启动在 `/home/unitree/.ros/ccs_edge_ws/<UTC启动时间_纳秒_PI
 <a id="deploy-edge-device-deployment-request-md-ccs-端侧部署总结与可复用任务指令"></a>
 <a id="deploy-edge-device-deployment-request-md-一本次-go2-部署总结"></a>
 <a id="deploy-edge-device-deployment-request-md-二可直接发送的部署指令"></a>
+
+## UAV_001
+
+UAV 新部署采用独立八包工作空间，静态模式与飞行模式显式区分。详见 [UAV 部署说明](devices/uav/DEPLOYMENT_GUIDE.md) 和 [静态验收报告](devices/uav/DEPLOYMENT_REPORT.md)。本轮未进行实飞。

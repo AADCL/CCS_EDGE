@@ -156,11 +156,18 @@ class CommandRunner(object):
         if not isinstance(arguments, list) or not arguments:
             raise ArtifactError("mapping command arguments are invalid")
         executable = arguments[0]
-        if not os.path.isfile(executable):
+        if os.path.dirname(executable):
+            resolved_executable = executable
+        else:
+            resolved_executable = shutil.which(executable)
+        if (not resolved_executable or not os.path.isfile(resolved_executable)
+                or not os.access(resolved_executable, os.X_OK)):
             raise ArtifactError("mapping integration script is unavailable: %s" % executable)
+        resolved_arguments = list(arguments)
+        resolved_arguments[0] = resolved_executable
         try:
             completed = subprocess.run(
-                arguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                resolved_arguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 universal_newlines=True, timeout=timeout,
                 shell=False, check=False,
             )

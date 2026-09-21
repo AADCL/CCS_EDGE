@@ -65,14 +65,14 @@ def load_config(path, device_path):
     except (KeyError, TypeError, ValueError) as exc:
         raise ConfigError("configuration field is invalid: %s" % exc)
     if result["backend"] not in (
-            "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu"):
+            "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu", "ducted_uav"):
         raise ConfigError("backend is unsupported")
     if any(not 1 <= result[key] <= 65535 for key in ("control_port", "status_port")):
         raise ConfigError("network port is invalid")
     if not 512 <= result["max_datagram_bytes"] <= 65507:
         raise ConfigError("max_datagram_bytes is invalid")
     if (result["enabled"] and result["backend"] in (
-            "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu")
+            "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu", "ducted_uav")
             and not result["stages"]):
         raise ConfigError("relocalization stages are empty")
     if result["max_artifact_bytes"] <= 0 or result["download_timeout_seconds"] <= 0:

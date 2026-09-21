@@ -96,9 +96,15 @@ def load_config(task_path, device_path):
     }
     if adapter:
         adapter_type = str(adapter.get("type", "navigation")).strip().lower()
-        if adapter_type not in ("navigation", "ground_air"):
+        if adapter_type not in ("navigation", "ground_air", "ducted_uav"):
             raise ConfigError("adapter.type must be navigation or ground_air")
         result["adapter"]["type"] = adapter_type
+        if adapter_type == "ducted_uav":
+            for key in ("workspace", "active_map_state_file", "emergency_stop_state_file"):
+                _text(adapter, key, "adapter." + key)
+            if result["max_raw_bytes"] < result["max_compressed_bytes"]:
+                raise ConfigError("limits.max_raw_bytes must cover max_compressed_bytes")
+            return result
         adapter_text = (
             "active_map_state_file", "navigation_map_root", "navigation_map_yaml",
         )

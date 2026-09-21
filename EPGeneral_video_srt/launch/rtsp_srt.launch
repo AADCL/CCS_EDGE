@@ -1,0 +1,10 @@
+<launch>
+  <arg name="decoder_preload" default=""/>
+  <arg name="device_config_file" default="$(find epgeneral_device_config)/config/device.yaml" />
+  <arg name="video_config_file" default="$(find epgeneral_device_config)/config/video.yaml" />
+  <rosparam command="load" file="$(arg device_config_file)" ns="edge_device" />
+  <node pkg="epgeneral_video_srt" type="rtsp_srt_node.py" name="epgeneral_video_srt" output="screen" required="true">
+    <env name="LD_PRELOAD" value="$(arg decoder_preload)"/>
+    <rosparam command="load" file="$(arg video_config_file)" />
+  </node>
+</launch>

@@ -1,0 +1,43 @@
+deployment:
+  state: deployed
+schema_version: 1
+protocol_id: ccs-relocalization-v1
+enabled: true
+backend: ducted_uav
+network:
+  bind_host: 0.0.0.0
+  control_port: 14565
+  ground_station_ip: 192.168.50.101
+  status_port: 14566
+  max_datagram_bytes: 1400
+storage:
+  map_root: /home/nrc/ccs_edge_ws/maps/download
+  pcd_filename: public_map.pcd
+  active_map_state_file: /home/nrc/ccs_edge_ws/run/state/relocalization.json
+  max_artifact_bytes: 4294967296
+  download_timeout_seconds: 300.0
+ros:
+  map_frame: map
+  odom_frame: odom
+  initial_pose_topic: /ducted/relocalization/initialpose
+  map_topic: /ducted/relocalization/global_map
+  startup_timeout_seconds: 90.0
+  stages:
+  - name: uav_relocalization
+    package: epgeneral_uav_integration
+    launch: relocalization_session.launch
+    args:
+    - map_id:={map_id}
+    - map_file:={map_pcd}
+  localization_health_topic: /ducted/localization/map_ready
+  localization_health_timeout_seconds: 0.5
+tf_stability:
+  timeout_seconds: 30.0
+  sample_hz: 10.0
+  sample_count: 10
+  translation_tolerance_m: 0.1
+  yaw_tolerance_deg: 2.0
+tf_reporting:
+  continuous: true
+  interval_seconds: 0.1
+  persist_interval_seconds: 30.0

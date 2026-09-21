@@ -1,0 +1,7 @@
+<launch>
+ <arg name="map_id"/><arg name="map_file"/>
+ <node pkg="epgeneral_uav_integration" type="uav_stage_client.py" name="uav_relocalization_session" output="screen" required="true">
+  <param name="action" value="localization_start"/><param name="owner" value="$(arg map_id)"/>
+  <param name="map_file" value="$(arg map_file)"/>
+ </node>
+</launch>

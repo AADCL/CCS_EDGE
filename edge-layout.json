@@ -11,7 +11,8 @@
   ],
   "special_packages": {
     "EPGeneral_go2_integration": "devices/go2/EPGeneral_go2_integration",
-    "EPGeneral_ground_air_control": "devices/ground_air_agv/EPGeneral_ground_air_control"
+    "EPGeneral_ground_air_control": "devices/ground_air_agv/EPGeneral_ground_air_control",
+    "EPGeneral_uav_integration": "devices/uav/EPGeneral_uav_integration"
   },
   "profiles": {
     "go2_edu": {
@@ -53,6 +54,13 @@
       "path": "devices/ground_air_agv/profiles/ground_air_agv",
       "additional_packages": [
         "EPGeneral_ground_air_control"
+      ]
+    },
+    "uav_001": {
+      "device_type": "uav",
+      "path": "devices/uav/profiles/uav_001",
+      "additional_packages": [
+        "EPGeneral_uav_integration"
       ]
     }
   }

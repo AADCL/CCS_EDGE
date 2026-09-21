@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 import urllib.error
@@ -47,9 +48,9 @@ class ArtifactTests(unittest.TestCase):
     def test_integration_checks_use_dedicated_timeout(self):
         runner = CommandRunner(self.config)
         commands = {
-            "check_fast_lio": [__file__],
-            "check_save_map": [__file__],
-            "check_pgm": [__file__],
+            "check_fast_lio": [sys.executable],
+            "check_save_map": [sys.executable],
+            "check_pgm": [sys.executable],
         }
         completed = mock.Mock(returncode=0, stdout="")
         with mock.patch("epgeneral_map_stream.artifacts.subprocess.run",
@@ -58,6 +59,56 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual(
             [call.kwargs["timeout"] for call in run.call_args_list],
             [self.config["integration_check_timeout_seconds"]] * 3)
+
+    def test_path_command_is_resolved_without_mutating_arguments(self):
+        runner = CommandRunner(self.config)
+        arguments = ["rosrun", "epgeneral_uav_integration", "uav_stage_client.py"]
+        resolved = os.path.join(self.temp.name, "rosrun")
+        completed = mock.Mock(returncode=0, stdout="native packages available")
+        with mock.patch("epgeneral_map_stream.artifacts.shutil.which", return_value=resolved), \
+                mock.patch("epgeneral_map_stream.artifacts.os.path.isfile", return_value=True), \
+                mock.patch("epgeneral_map_stream.artifacts.os.access", return_value=True), \
+                mock.patch("epgeneral_map_stream.artifacts.subprocess.run",
+                           return_value=completed) as run:
+            output = runner.run(arguments, timeout=3.0)
+        self.assertEqual(output, "native packages available")
+        self.assertEqual(arguments[0], "rosrun")
+        self.assertEqual(run.call_args.args[0][0], resolved)
+        self.assertEqual(run.call_args.args[0][1:], arguments[1:])
+
+    def test_missing_path_command_is_rejected(self):
+        runner = CommandRunner(self.config)
+        with mock.patch("epgeneral_map_stream.artifacts.shutil.which", return_value=None), \
+                mock.patch("epgeneral_map_stream.artifacts.subprocess.run") as run:
+            with self.assertRaisesRegex(ArtifactError, "unavailable: missing-command"):
+                runner.run(["missing-command"])
+        run.assert_not_called()
+
+    def test_non_executable_path_command_is_rejected(self):
+        runner = CommandRunner(self.config)
+        resolved = os.path.join(self.temp.name, "rosrun")
+        with mock.patch("epgeneral_map_stream.artifacts.shutil.which", return_value=resolved), \
+                mock.patch("epgeneral_map_stream.artifacts.os.path.isfile", return_value=True), \
+                mock.patch("epgeneral_map_stream.artifacts.os.access", return_value=False), \
+                mock.patch("epgeneral_map_stream.artifacts.subprocess.run") as run:
+            with self.assertRaisesRegex(ArtifactError, "unavailable: rosrun"):
+                runner.run(["rosrun"])
+        run.assert_not_called()
+
+    def test_explicit_command_path_is_checked_without_path_lookup(self):
+        runner = CommandRunner(self.config)
+        executable = os.path.join(self.temp.name, "integration-check")
+        completed = mock.Mock(returncode=0, stdout="ok")
+        with mock.patch("epgeneral_map_stream.artifacts.shutil.which") as which, \
+                mock.patch("epgeneral_map_stream.artifacts.os.path.isfile", return_value=True) as isfile, \
+                mock.patch("epgeneral_map_stream.artifacts.os.access", return_value=True) as access, \
+                mock.patch("epgeneral_map_stream.artifacts.subprocess.run",
+                           return_value=completed) as run:
+            self.assertEqual(runner.run([executable]), "ok")
+        which.assert_not_called()
+        isfile.assert_called_once_with(executable)
+        access.assert_called_once_with(executable, os.X_OK)
+        self.assertEqual(run.call_args.args[0], [executable])
 
     def test_source_pcd_must_change_after_session_start(self):
         source = os.path.join(self.temp.name, "source.pcd")
