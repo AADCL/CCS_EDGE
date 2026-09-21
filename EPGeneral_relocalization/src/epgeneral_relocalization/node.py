@@ -15,6 +15,7 @@ from datetime import datetime
 
 from .artifacts import ArtifactError, download, install_archive, validate_map_directory
 from .config import ConfigError, load_config
+from .trusted_regions import TrustedRegionsReceiver
 from .protocol import Protocol, ProtocolError
 from .ros_bridge import RosBridge, RosIntegrationError, StackManager
 
@@ -39,7 +40,7 @@ def build_logger(log_dir=None):
     return logger
 
 
-class RelocalizationNode(object):
+class RelocalizationNode(TrustedRegionsReceiver):
     def __init__(self, config, rospy_module, logger, socket_factory=socket.socket):
         self.config = config
         self.rospy = rospy_module
@@ -60,6 +61,8 @@ class RelocalizationNode(object):
         self.map_dir = None
         self.response_cache = {}
         self.operation_generation = 0
+        self.region_operation = None
+        self.region_responses = {}
         self._latest_tf = None
         self._latest_tf_map_id = ""
         self._last_tf_persisted_at = 0.0
@@ -83,6 +86,8 @@ class RelocalizationNode(object):
                          self.config["backend"], self.config["enabled"], self.config["control_port"])
 
     def stop(self):
+        with self.lock:
+            self.region_operation = None
         self.running = False
         try:
             self.socket.close()
@@ -122,6 +127,9 @@ class RelocalizationNode(object):
 
     def _handle(self, message):
         if message["device_id"] != self.config["device_id"]:
+            return
+        if message["message_type"] == "trusted_regions_offer":
+            self._receive_regions(message)
             return
         request_id = message["request_id"]
         cached = self.response_cache.get(request_id)
@@ -450,6 +458,8 @@ class RelocalizationNode(object):
                 "message_type": message_type, "sequence": self.sequence,
                 "sent_at_ns": time.time_ns(), "payload": dict(payload),
             }
+            if message_type == "negotiation_status":
+                message["payload"]["trusted_regions_v1"] = self.config.get("trusted_regions_enabled", True)
             message["payload"]["request_id"] = request.get("request_id", "heartbeat")
             try:
                 self.socket.sendto(

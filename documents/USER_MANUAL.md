@@ -834,3 +834,7 @@ GO2_3 正常启动在 `/home/unitree/.ros/ccs_edge_ws/<UTC启动时间_纳秒_PI
 ## UAV_001
 
 UAV 新部署采用独立八包工作空间，静态模式与飞行模式显式区分。详见 [UAV 部署说明](devices/uav/DEPLOYMENT_GUIDE.md) 和 [静态验收报告](devices/uav/DEPLOYMENT_REPORT.md)。本轮未进行实飞。
+
+## 可选可信区域（重定位包 0.5.0）
+
+[可信区域](INTERFACE_REFERENCE.md#可选可信区域接收) 说明接收开关、文件路径、XML 格式及协议。缺少区域文件不会改变原重定位流程。
