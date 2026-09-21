@@ -1,5 +1,9 @@
 # 端侧接口与配置参考
 
+## 0.14.0 占据图接口
+
+prepare 新增可选 artifact_formats，成果 manifest 支持 ot 角色及 SHA-256。保持旧平台 PGM 三件套契约，拒绝未协商的 OT-only 成果。命令、源文件/会话路径、新鲜度及各机型约束见 [OT 成果接口](OCTOMAP.md)。
+
 整理日期：2026-09-18；源码基线：CCS_dev dbe85904cdbae3d3b837f8816f29d1f030d7bd5a，配套 CCS 0.25.0。
 
 以本仓库 README 和各机型部署指南为当前目录入口。配置无热重载，包内默认配置与设备运行目录配置必须区分。
@@ -308,6 +312,17 @@ UAV 补充字段：
 | `rtsp_uri` | 真实 A8 RTSP 地址。 |
 
 ## 8. map_stream.yaml
+
+0.14.0 新增可选 OT 配置，默认不启用任何未知的设备命令：
+
+| 参数 | 默认 / 约束 |
+|---|---|
+| `artifacts.ot_path` | `{session_dir}/map.ot`，必须与 PCD 同目录且位于当前会话内 |
+| `artifacts.source_ot_path` | 可选，经核实的原生功能包源路径，支持会话模板变量 |
+| `integrations.occupancy.command` | 可选，导出程序 argv 数组，支持 `{pcd_path}`、`{ot_path}` 等路径占位符 |
+| `integrations.occupancy.check_command` | 配置导出命令时必填，预检查 argv 数组 |
+
+成果组合、旧平台协商、新鲜度和机型约束见 [OT 接入说明](OCTOMAP.md)。
 
 配置 schema=6，协议为 ccs-map-stream-v2。除明确写“默认/可选”的项外，下表均必须提供；数值示例来自公共模板，设备 profile 可能不同。backend 不会消除基础 integrations 配置结构，保留 profile 中的兼容占位字段，勿自行删除。
 

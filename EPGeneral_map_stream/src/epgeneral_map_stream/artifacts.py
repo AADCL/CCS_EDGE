@@ -10,6 +10,8 @@ import threading
 import time
 import uuid
 import zipfile
+import struct
+import math
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -105,7 +107,11 @@ class SessionPaths(object):
         self.pcd_path = os.path.abspath(config["pcd_template"].format(**values))
         self.pgm_path = os.path.abspath(config["pgm_template"].format(**values))
         self.yaml_path = os.path.abspath(config["yaml_template"].format(**values))
-        for path in (self.session_dir, self.pcd_path, self.pgm_path, self.yaml_path):
+        self.ot_path = os.path.abspath(config.get("ot_template",
+            os.path.join(os.path.dirname(self.pcd_path), "map.ot")).format(**values))
+        if os.path.dirname(self.ot_path) != os.path.dirname(self.pcd_path):
+            raise ArtifactError("OT must be stored beside the original PCD")
+        for path in (self.session_dir, self.pcd_path, self.pgm_path, self.yaml_path, self.ot_path):
             if not _inside(path, self.root):
                 raise ArtifactError("artifact path escapes workspace root")
         for path in (self.pcd_path, self.pgm_path, self.yaml_path):
@@ -116,6 +122,7 @@ class SessionPaths(object):
         values.update({
             "pcd_path": self.pcd_path, "pgm_path": self.pgm_path,
             "yaml_path": self.yaml_path,
+            "ot_path": self.ot_path,
         })
         self.values = values
 
@@ -230,9 +237,120 @@ def _validate_pcd(path):
         raise ArtifactError("PCD data declaration is invalid")
 
 
+def artifact_files(paths):
+    files = {"pcd": paths.pcd_path}
+    pgm = os.path.lexists(paths.pgm_path)
+    metadata = os.path.lexists(paths.yaml_path)
+    if pgm != metadata:
+        raise ArtifactError("PGM and YAML must be provided together")
+    if pgm:
+        files.update(pgm=paths.pgm_path, yaml=paths.yaml_path)
+    ot = getattr(paths, "ot_path", "")
+    if ot and os.path.lexists(ot):
+        files["ot"] = ot
+    if not (pgm or "ot" in files):
+        raise ArtifactError("PCD requires PGM/YAML or OT")
+    return files
+
+
+def validate_ot(path, max_bytes):
+    with io.open(path, "rb") as stream:
+        if stream.readline(256).strip() != b"# Octomap OcTree file":
+            raise ArtifactError("expected a full .ot OcTree, not .bt")
+        header = {}
+        for unused in range(64):
+            line = stream.readline(1024).strip()
+            if line == b"data":
+                break
+            if not line or line.startswith(b"#"):
+                continue
+            try:
+                key, value = line.decode("ascii").split(None, 1)
+            except (ValueError, UnicodeError):
+                raise ArtifactError("invalid OT header")
+            if key in header:
+                raise ArtifactError("duplicate OT header")
+            header[key] = value
+        else:
+            raise ArtifactError("OT data marker missing")
+        try:
+            count, resolution = int(header["size"]), float(header["res"])
+        except (KeyError, ValueError):
+            raise ArtifactError("invalid OT size/resolution")
+        stride = {"OcTree": 5, "ColorOcTree": 8}.get(header.get("id"))
+        if (not stride or not 0 < count <= 4000000 or count * stride > max_bytes
+                or not math.isfinite(resolution)
+                or not float(np.finfo(np.float32).tiny) <= resolution <= float(np.finfo(np.float32).max) / 65536):
+            raise ArtifactError("unsupported OT type or geometry")
+        pending, seen = [0], 0
+        while pending:
+            depth = pending.pop()
+            node = stream.read(stride)
+            if len(node) != stride or depth > 16 or not math.isfinite(struct.unpack("<f", node[:4])[0]):
+                raise ArtifactError("OT is truncated or contains invalid nodes")
+            seen += 1
+            if seen > count:
+                raise ArtifactError("OT node count mismatch")
+            mask = node[-1]
+            pending.extend([depth + 1] * bin(mask).count("1"))
+        if seen != count or stream.read(1):
+            raise ArtifactError("OT node count or length mismatch")
+
+
+def occupancy_sources(config, paths):
+    context = dict(paths.values)
+    backend = config.get("integration_backend")
+    if backend == "ground_air_service":
+        directory = os.path.join(config["ground_air_map_root"], context["map_name"])
+    elif backend in ("scout_finalize", "managed_finalize"):
+        directory = os.path.join(config["scout_map_root"], context["map_name"])
+    elif backend == "ducted_uav":
+        directory = paths.session_dir
+    else:
+        directory = os.path.dirname(config["source_pcd_path"])
+    if config.get("source_ot_explicit"):
+        ot = config["source_ot_template"].format(**context)
+    else:
+        ot = os.path.join(directory, "map.ot")
+    sources = {"ot": os.path.abspath(os.path.expanduser(ot))}
+    if backend == "go2_accumulator":
+        sources.update(pgm=config["source_pgm_path"], yaml=config["source_yaml_path"])
+    else:
+        sources.update(pgm=os.path.join(directory, "map.pgm"), yaml=os.path.join(directory, "map.yaml"))
+    return sources
+
+
+def collect_occupancy(paths, config, baseline, started_at_ns):
+    """Only accept current-session sources or freshly exported session outputs."""
+    for role, source in occupancy_sources(config, paths).items():
+        target = getattr(paths, role + "_path")
+        valid = False
+        # Wrappers preserve source timestamps so copying cannot rejuvenate an old file.
+        for candidate, baseline_key in ((source, role), (target, "target_" + role)):
+            if not os.path.lexists(candidate):
+                continue
+            current = file_fingerprint(candidate)
+            if current is None or current["size"] <= 0:
+                raise ArtifactError("%s output is empty or a symbolic link" % role.upper())
+            previous = baseline.get(baseline_key)
+            if current["mtime_ns"] < started_at_ns or (previous is not None and current == previous):
+                continue
+            if role == "ot":
+                validate_ot(candidate, config["max_artifact_bytes"])
+            if os.path.abspath(candidate) != os.path.abspath(target):
+                temporary = target + ".tmp"
+                shutil.copy2(candidate, temporary)
+                os.replace(temporary, target)
+            valid = True
+            break
+        if not valid and os.path.lexists(target):
+            os.unlink(target)  # Only this session's staged copy; source files remain intact.
+
+
 def validate_artifacts(paths, max_artifact_bytes):
     total = 0
-    for path in (paths.pcd_path, paths.pgm_path, paths.yaml_path):
+    selected = artifact_files(paths)
+    for path in selected.values():
         if os.path.islink(path) or not os.path.isfile(path):
             raise ArtifactError("artifact is missing or is a symbolic link: %s" % path)
         size = os.path.getsize(path)
@@ -242,6 +360,10 @@ def validate_artifacts(paths, max_artifact_bytes):
     if total > max_artifact_bytes:
         raise ArtifactError("artifact files exceed configured limit")
     _validate_pcd(paths.pcd_path)
+    if "ot" in selected:
+        validate_ot(selected["ot"], max_artifact_bytes)
+    if "pgm" not in selected:
+        return
     width, height = _pgm_header(paths.pgm_path)
     try:
         with io.open(paths.yaml_path, "r", encoding="utf-8") as stream:
@@ -274,13 +396,18 @@ def wait_for_stable_artifacts(paths, config, clock=time.monotonic, sleeper=time.
     while clock() < deadline:
         current = []
         complete = True
-        for path in (paths.pcd_path, paths.pgm_path, paths.yaml_path):
+        try:
+            selected = artifact_files(paths)
+        except ArtifactError:
+            selected = {"pcd": paths.pcd_path}
+            complete = False
+        for role, path in sorted(selected.items()):
             try:
                 stat = os.stat(path, follow_symlinks=False)
                 if not os.path.isfile(path) or stat.st_size <= 0:
                     complete = False
                     break
-                current.append((stat.st_size, stat.st_mtime_ns))
+                current.append((role, stat.st_size, stat.st_mtime_ns))
             except OSError:
                 complete = False
                 break
@@ -294,17 +421,19 @@ def wait_for_stable_artifacts(paths, config, clock=time.monotonic, sleeper=time.
             stable = 0
         previous = current
         sleeper(config["artifact_poll_seconds"])
-    raise ArtifactError("timed out waiting for stable PCD, PGM and YAML artifacts")
+    raise ArtifactError("timed out waiting for stable PCD and PGM/YAML or OT artifacts")
 
 
 def build_archive(paths, config, identity):
-    files = {
-        "pcd": (os.path.basename(paths.pcd_path), paths.pcd_path),
-        "pgm": (os.path.basename(paths.pgm_path), paths.pgm_path),
-        "yaml": (os.path.basename(paths.yaml_path), paths.yaml_path),
-    }
+    validate_artifacts(paths, config["max_artifact_bytes"])
+    selected = artifact_files(paths)
+    if "ot" not in identity.get("artifact_formats", ["pcd", "pgm", "yaml"]):
+        if "pgm" not in selected:
+            raise ArtifactError("ground station requires legacy PCD/PGM/YAML; OT was not negotiated")
+        selected.pop("ot", None)
+    files = {role: (os.path.basename(path), path) for role, path in selected.items()}
     archive_names = [value[0] for value in files.values()]
-    if (len(set(archive_names)) != 3 or "manifest.json" in archive_names
+    if (len(set(archive_names)) != len(files) or "manifest.json" in archive_names
             or any(not name or name in (".", "..") for name in archive_names)):
         raise ArtifactError("artifact file names must be unique and safe")
     manifest_files = {}

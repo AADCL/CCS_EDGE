@@ -68,23 +68,29 @@ SOURCE_PCD="${MAP_DIR}/${PCD_NAME}"
 SOURCE_PGM="${MAP_DIR}/${PGM_NAME}"
 SOURCE_YAML="${MAP_DIR}/${YAML_NAME}"
 SOURCE_METADATA="${MAP_DIR}/${METADATA_NAME}"
-for path in "${SOURCE_PCD}" "${SOURCE_PGM}" "${SOURCE_YAML}" "${SOURCE_METADATA}"; do
+SOURCE_OT="${CCS_SOURCE_OT:-${MAP_DIR}/map.ot}"
+TARGET_OT="${CCS_TARGET_OT:-$(dirname "${TARGET_PCD}")/map.ot}"
+for path in "${SOURCE_PCD}" "${SOURCE_METADATA}"; do
   [[ -s "${path}" ]] || fail "saved artifact is missing or empty: ${path}"
 done
 
-python3 - "${SOURCE_METADATA}" "${MAP_NAME}" <<'PY' \
+python3 - "${SOURCE_METADATA}" "${MAP_NAME}" "${PCD_NAME}" "${SOURCE_YAML}" "${SOURCE_OT}" "${CCS_OCCUPANCY_EXTERNAL:-0}" <<'PY' \
   || fail "saved metadata does not match map_name: ${MAP_NAME}"
 import json
 import sys
+from pathlib import Path
 
 with open(sys.argv[1], "r", encoding="utf-8") as stream:
     metadata = json.load(stream)
 if metadata.get("map_id") != sys.argv[2]:
     raise ValueError("map_id mismatch")
-if metadata.get("point_cloud") != "cloud_map.pcd":
+if metadata.get("point_cloud") != sys.argv[3]:
     raise ValueError("point_cloud mismatch")
-if metadata.get("occupancy_map") != "map.yaml":
+occupancy_names = [Path(path).name for path in sys.argv[4:6] if Path(path).is_file()]
+if occupancy_names and metadata.get("occupancy_map") not in occupancy_names:
     raise ValueError("occupancy_map mismatch")
+if not occupancy_names and sys.argv[6] != "1":
+    raise ValueError("missing occupancy outputs")
 if int(metadata.get("point_count", 0)) <= 0:
     raise ValueError("point_count is not positive")
 PY
@@ -93,11 +99,16 @@ TEMP_PCD="${TARGET_PCD}.tmp.$$"
 TEMP_PGM="${TARGET_PGM}.tmp.$$"
 TEMP_YAML="${TARGET_YAML}.tmp.$$"
 trap 'rm -f -- "${TEMP_PCD}" "${TEMP_PGM}" "${TEMP_YAML}"' EXIT
-cp -- "${SOURCE_PCD}" "${TEMP_PCD}"
-cp -- "${SOURCE_PGM}" "${TEMP_PGM}"
-cp -- "${SOURCE_YAML}" "${TEMP_YAML}"
+cp -p -- "${SOURCE_PCD}" "${TEMP_PCD}"
 mv -f -- "${TEMP_PCD}" "${TARGET_PCD}"
-mv -f -- "${TEMP_PGM}" "${TARGET_PGM}"
-mv -f -- "${TEMP_YAML}" "${TARGET_YAML}"
+if [[ -e "${SOURCE_PGM}" || -e "${SOURCE_YAML}" ]]; then
+  [[ -s "${SOURCE_PGM}" && -s "${SOURCE_YAML}" ]] || fail "incomplete PGM/YAML pair"
+  cp -p -- "${SOURCE_PGM}" "${TEMP_PGM}"
+  cp -p -- "${SOURCE_YAML}" "${TEMP_YAML}"
+  mv -f -- "${TEMP_PGM}" "${TARGET_PGM}"
+  mv -f -- "${TEMP_YAML}" "${TARGET_YAML}"
+fi
+if [[ -s "${SOURCE_OT}" ]]; then cp -p -- "${SOURCE_OT}" "${TARGET_OT}"; fi
+[[ "${CCS_OCCUPANCY_EXTERNAL:-0}" == 1 || -s "${TARGET_OT}" || ( -s "${TARGET_PGM}" && -s "${TARGET_YAML}" ) ]] || fail "missing occupancy outputs"
 trap - EXIT
 printf 'ground-air map saved and verified: %s\n' "${MAP_DIR}"

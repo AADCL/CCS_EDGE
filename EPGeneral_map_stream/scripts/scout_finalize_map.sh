@@ -25,6 +25,8 @@ TARGET_PCD="$5" TARGET_PGM="$6" TARGET_YAML="$7" LOG_FILE="$8" TIMEOUT="$9"
 [[ "${MAP_NAME}" =~ ^[0-9]{8}_[0-9]{6}$ ]] || fail "map_name must use YYYYMMDD_HHMMSS"
 check_tools "${PACKAGE_NAME}" "${EXECUTABLE}" "${MAP_ROOT}"
 MAP_DIR="${MAP_ROOT}/${MAP_NAME}"
+SOURCE_OT="${CCS_SOURCE_OT:-${MAP_DIR}/map.ot}"
+TARGET_OT="${CCS_TARGET_OT:-$(dirname "${TARGET_PCD}")/map.ot}"
 FILTERED_PCD="${MAP_DIR}/filtered_camera_init.pcd"
 [[ -d "${MAP_DIR}" ]] || fail "map directory is missing: ${MAP_DIR}"
 [[ -s "${FILTERED_PCD}" ]] || fail "filtered PCD is missing or empty: ${FILTERED_PCD}"
@@ -34,16 +36,19 @@ timeout --signal=INT --kill-after=5 "${TIMEOUT}" \
   >"${LOG_FILE}" 2>&1 \
   || fail "finalize_map failed; see ${LOG_FILE}"
 for path in "${FILTERED_PCD}" "${MAP_DIR}/raw_camera_init.pcd" \
-    "${MAP_DIR}/public_map.pcd" "${MAP_DIR}/map.pgm" "${MAP_DIR}/map.yaml" \
+    "${MAP_DIR}/public_map.pcd" \
     "${MAP_DIR}/map_metadata.yaml"; do
   [[ -s "${path}" ]] || fail "finalized artifact is missing or empty: ${path}"
 done
 grep -Eq "^map_name:[[:space:]]*['\"]?${MAP_NAME}['\"]?[[:space:]]*$" \
   "${MAP_DIR}/map_metadata.yaml" || fail "map metadata does not match map_name: ${MAP_NAME}"
-cp -- "${MAP_DIR}/public_map.pcd" "${TARGET_PCD}.tmp"
-cp -- "${MAP_DIR}/map.pgm" "${TARGET_PGM}.tmp"
-cp -- "${MAP_DIR}/map.yaml" "${TARGET_YAML}.tmp"
+cp -p -- "${MAP_DIR}/public_map.pcd" "${TARGET_PCD}.tmp"
 mv -f -- "${TARGET_PCD}.tmp" "${TARGET_PCD}"
-mv -f -- "${TARGET_PGM}.tmp" "${TARGET_PGM}"
-mv -f -- "${TARGET_YAML}.tmp" "${TARGET_YAML}"
+if [[ -e "${MAP_DIR}/map.pgm" || -e "${MAP_DIR}/map.yaml" ]]; then
+  [[ -s "${MAP_DIR}/map.pgm" && -s "${MAP_DIR}/map.yaml" ]] || fail "incomplete PGM/YAML pair"
+  cp -p -- "${MAP_DIR}/map.pgm" "${TARGET_PGM}"
+  cp -p -- "${MAP_DIR}/map.yaml" "${TARGET_YAML}"
+fi
+if [[ -s "${SOURCE_OT}" ]]; then cp -p -- "${SOURCE_OT}" "${TARGET_OT}"; fi
+[[ "${CCS_OCCUPANCY_EXTERNAL:-0}" == 1 || -s "${TARGET_OT}" || ( -s "${TARGET_PGM}" && -s "${TARGET_YAML}" ) ]] || fail "missing occupancy outputs"
 printf 'Scout map finalized: %s\n' "${MAP_DIR}"

@@ -2,9 +2,11 @@
 
 配套 CCS 0.23.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
 
-<!-- epgeneral_map_stream_VERSION: 0.13.3 -->
+<!-- epgeneral_map_stream_VERSION: 0.14.0 -->
 
-版本：`v0.13.3`。运行配置统一由 `epgeneral_device_config/config/map_stream.yaml` 提供。
+版本：`v0.14.0`。运行配置统一由 `epgeneral_device_config/config/map_stream.yaml` 提供。
+
+占据图成果支持 PGM/YAML、OT 或两者，原始 PCD 仍为必需。详见 [OT 配置、兼容性与会话隔离](../documents/OCTOMAP.md)。
 
 Scout Mini profile 使用 `scout_finalize` backend。启动顺序固定为
 `fastlio_mapping_scout.launch rviz:=false`、`pointcloud_mapper.launch map_name:=MAP_NAME`、

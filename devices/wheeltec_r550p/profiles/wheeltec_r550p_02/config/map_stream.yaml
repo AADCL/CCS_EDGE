@@ -71,5 +71,7 @@ artifacts:
   source_yaml_path: "/home/nrc15/livox_fastlio/maps/current/map.yaml"
   archive_root: "/home/nrc15/livox_fastlio/maps/archive"
   pcd_path: "{session_dir}/map.pcd"
+  # Optional occupancy output; keep beside the original PCD. Native exporter paths are configured separately.
+  ot_path: "{session_dir}/map.ot"
   pgm_path: "{session_dir}/map.pgm"
   yaml_path: "{session_dir}/map.yaml"

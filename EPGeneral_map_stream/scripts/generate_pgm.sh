@@ -43,18 +43,20 @@ SOURCE_PGM_PATH="${10}"
 SOURCE_YAML_PATH="${11}"
 ARCHIVE_ROOT="${12}"
 shift 12
+SOURCE_OT_PATH="${CCS_SOURCE_OT:-$(dirname "${SOURCE_PCD_PATH}")/map.ot}"
+TARGET_OT_PATH="${CCS_TARGET_OT:-$(dirname "${PCD_PATH}")/map.ot}"
 
 check_launch "${SETUP_FILE}" "${PACKAGE_NAME}" "${LAUNCH_FILE}"
 [[ -s "${PCD_PATH}" ]] || fail "input PCD is missing or empty: ${PCD_PATH}"
 [[ "${TIMEOUT_SECONDS}" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "timeout is invalid"
 mkdir -p "$(dirname "${SOURCE_PCD_PATH}")" "$(dirname "${SOURCE_PGM_PATH}")" "$(dirname "${SOURCE_YAML_PATH}")"
 mkdir -p "$(dirname "${PGM_PATH}")" "$(dirname "${YAML_PATH}")" "$(dirname "${LOG_FILE}")"
-rm -f "${PGM_PATH}" "${YAML_PATH}"
+rm -f "${PGM_PATH}" "${YAML_PATH}" "${TARGET_OT_PATH}"
 
 SESSION_NAME="$(basename "$(dirname "${PCD_PATH}")")"
 ARCHIVE_DIR="${ARCHIVE_ROOT}/$(date -u '+%Y%m%dT%H%M%SZ')-${SESSION_NAME}"
 mkdir -p "${ARCHIVE_DIR}"
-for source_path in "${SOURCE_PCD_PATH}" "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}"; do
+for source_path in "${SOURCE_PCD_PATH}" "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}" "${SOURCE_OT_PATH}"; do
   if [[ -e "${source_path}" ]]; then
     cp -a -- "${source_path}" "${ARCHIVE_DIR}/"
   fi
@@ -62,7 +64,7 @@ done
 
 restore_previous_outputs() {
   local archived
-  for source_path in "${SOURCE_PCD_PATH}" "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}"; do
+  for source_path in "${SOURCE_PCD_PATH}" "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}" "${SOURCE_OT_PATH}"; do
     archived="${ARCHIVE_DIR}/$(basename "${source_path}")"
     if [[ -e "${archived}" ]]; then
       cp -a -- "${archived}" "${source_path}"
@@ -77,7 +79,7 @@ trap 'rm -f "${TEMP_SOURCE_PCD}"' EXIT
 cp -- "${PCD_PATH}" "${TEMP_SOURCE_PCD}"
 mv -f -- "${TEMP_SOURCE_PCD}" "${SOURCE_PCD_PATH}"
 trap - EXIT
-rm -f -- "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}"
+rm -f -- "${SOURCE_PGM_PATH}" "${SOURCE_YAML_PATH}" "${SOURCE_OT_PATH}"
 
 set +e
 timeout --signal=INT --kill-after=5 "${TIMEOUT_SECONDS}" \
@@ -88,17 +90,24 @@ if [[ "${STATUS}" -ne 0 ]]; then
   restore_previous_outputs
   fail "PGM generator exited with status ${STATUS}; see ${LOG_FILE}"
 fi
-if [[ ! -s "${SOURCE_PGM_PATH}" || ! -s "${SOURCE_YAML_PATH}" ]]; then
+if [[ ! -s "${SOURCE_OT_PATH}" ]] && [[ ! -s "${SOURCE_PGM_PATH}" || ! -s "${SOURCE_YAML_PATH}" ]]; then
   restore_previous_outputs
-  fail "PGM generator did not produce the configured PGM and YAML"
+  fail "occupancy exporter did not produce PGM/YAML or OT"
 fi
 
 TEMP_PGM="${PGM_PATH}.tmp.$$"
 TEMP_YAML="${YAML_PATH}.tmp.$$"
 trap 'rm -f "${TEMP_PGM}" "${TEMP_YAML}"' EXIT
-cp -- "${SOURCE_PGM_PATH}" "${TEMP_PGM}"
-cp -- "${SOURCE_YAML_PATH}" "${TEMP_YAML}"
-mv -f -- "${TEMP_PGM}" "${PGM_PATH}"
-mv -f -- "${TEMP_YAML}" "${YAML_PATH}"
+if [[ -e "${SOURCE_PGM_PATH}" || -e "${SOURCE_YAML_PATH}" ]]; then
+  [[ -s "${SOURCE_PGM_PATH}" && -s "${SOURCE_YAML_PATH}" ]] || fail "incomplete PGM/YAML pair"
+  cp -p -- "${SOURCE_PGM_PATH}" "${TEMP_PGM}"
+  cp -p -- "${SOURCE_YAML_PATH}" "${TEMP_YAML}"
+  mv -f -- "${TEMP_PGM}" "${PGM_PATH}"
+  mv -f -- "${TEMP_YAML}" "${YAML_PATH}"
+fi
+if [[ -s "${SOURCE_OT_PATH}" ]]; then
+  cp -p -- "${SOURCE_OT_PATH}" "${TARGET_OT_PATH}.tmp"
+  mv -f -- "${TARGET_OT_PATH}.tmp" "${TARGET_OT_PATH}"
+fi
 trap - EXIT
 printf 'PGM and YAML are ready: %s %s\n' "${PGM_PATH}" "${YAML_PATH}"

@@ -93,6 +93,11 @@ def decode_command(datagram, config):
                     == payload["primary_device_id"].casefold())):
             raise ProtocolError("role does not match primary_device_id")
     if message_type == "prepare_mapping":
+        formats = payload.get("artifact_formats", ["pcd", "pgm", "yaml"])
+        if (not isinstance(formats, list) or not formats or "pcd" not in formats
+                or any(value not in ("pcd", "pgm", "yaml", "ot") for value in formats)
+                or ("pgm" in formats) != ("yaml" in formats)):
+            raise ProtocolError("artifact_formats is invalid")
         try:
             ipaddress.ip_address(str(payload.get("return_host")))
         except ValueError as exc:
