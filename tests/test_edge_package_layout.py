@@ -17,6 +17,7 @@ PACKAGE_DIRS = (
     "EPGeneral_udp_telemetry",
     "EPGeneral_video_srt",
     "devices/go2/EPGeneral_go2_integration",
+    "devices/uav/EPGeneral_uav_integration",
 )
 FUNCTION_DIRS = PACKAGE_DIRS[1:]
 CONFIG_FILES = (
@@ -55,6 +56,7 @@ class EdgePackageLayoutTests(unittest.TestCase):
             "epgeneral_udp_telemetry",
             "epgeneral_video_srt",
             "epgeneral_go2_integration",
+            "epgeneral_uav_integration",
         })
         self.assertFalse((EDGE_ROOT / "deploy" / "package.xml").exists())
         self.assertFalse((EDGE_ROOT / "documents" / "package.xml").exists())

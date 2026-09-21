@@ -13,9 +13,9 @@ class RepositoryTests(unittest.TestCase):
     def test_layout_packages_profiles_and_static_files(self):
         packages = LAYOUT["common_packages"] + list(LAYOUT["special_packages"])
         manifests = [package_path(p) / "package.xml" for p in packages]
-        self.assertEqual(len(manifests), 9)
-        self.assertEqual(len({ET.parse(p).findtext("name") for p in manifests}), 9)
-        self.assertEqual(len(LAYOUT["profiles"]), 7)
+        self.assertEqual(len(manifests), 10)
+        self.assertEqual(len({ET.parse(p).findtext("name") for p in manifests}), 10)
+        self.assertEqual(len(LAYOUT["profiles"]), 8)
         for p in ROOT.rglob("*"):
             if ".git" in p.parts or "__pycache__" in p.parts or not p.is_file():
                 continue
@@ -32,7 +32,7 @@ class RepositoryTests(unittest.TestCase):
         for typ in {v["device_type"] for v in LAYOUT["profiles"].values()}:
             folder = ROOT / "documents/devices" / typ
             self.assertEqual({p.name for p in folder.rglob("*.md")},
-                             {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"})
+                             ({"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md", "DEPLOYMENT_REPORT.md"} if typ == "uav" else {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"}))
         for profile, definition in LAYOUT["profiles"].items():
             identity = yaml.safe_load((profile_path(profile)/"config/device.yaml").read_text())["device"]["id"]
             record = ROOT / "documents/devices" / definition["device_type"] / "DEPLOYMENT_RECORD.md"

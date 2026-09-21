@@ -1,0 +1,6 @@
+string action
+string owner
+string argument
+---
+bool success
+string message

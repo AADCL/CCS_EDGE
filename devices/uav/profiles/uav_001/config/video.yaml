@@ -1,0 +1,10 @@
+input_mode: rtsp
+rtsp_uri: rtsp://192.168.144.25:8554/main.264
+output_width: 640
+output_height: 480
+framerate: 15
+bitrate_kbps: 2000
+srt_port: 9000
+srt_latency_ms: 500
+frame_timeout_seconds: 8.0
+rtsp_codec: h265

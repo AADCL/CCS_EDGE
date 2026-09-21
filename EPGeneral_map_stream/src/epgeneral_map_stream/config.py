@@ -160,10 +160,10 @@ def load_config(mapping_path, device_path):
     backend = integrations.get("backend", "go2_accumulator")
     if backend not in (
             "go2_accumulator", "scout_finalize", "managed_finalize",
-            "ground_air_service"):
+            "ground_air_service", "ducted_uav"):
         raise ConfigError(
             "integrations.backend must be go2_accumulator, scout_finalize, "
-            "managed_finalize or ground_air_service")
+            "managed_finalize, ground_air_service or ducted_uav")
     prerequisites = _mapping(
         integrations, "mapping_prerequisites",
         "integrations.mapping_prerequisites")
@@ -253,7 +253,7 @@ def load_config(mapping_path, device_path):
     return {
         "schema_version": 6,
         "protocol_id": protocol_id,
-        "capability_version": "0.13.2",
+        "capability_version": "0.13.3",
         "integration_backend": backend,
         "device_id": device_id,
         "device_ip": device_ip,
@@ -515,6 +515,16 @@ def ground_air_map_directory(config, map_name):
 
 def build_integration_commands(config, values):
     context = command_context(config, values)
+    if config["integration_backend"] == "ducted_uav":
+        base = ["rosrun", "epgeneral_uav_integration", "uav_stage_client.py"]
+        owner = context.get("session_id", "preflight")
+        return {
+            "checks": [base + ["offline_check"]],
+            "start_fast_lio": base + ["mapping_start", owner],
+            "save_map": base + ["mapping_save", owner, os.path.dirname(context["pcd_path"])],
+            "stop_fast_lio": base + ["mapping_stop", owner],
+            "abort_fast_lio": base + ["mapping_stop", owner],
+        }
     if config["integration_backend"] == "ground_air_service":
         expected_nodes = config.get("ground_air_expected_nodes")
         if (not isinstance(expected_nodes, list) or not expected_nodes

@@ -20,7 +20,7 @@ from .ros_bridge import RosBridge, RosIntegrationError, StackManager
 
 
 SUPPORTED_RELOCALIZATION_BACKENDS = frozenset((
-    "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu",
+    "scout_mini", "wheeltec_r550p", "ground_air_agv", "go2_edu", "ducted_uav",
 ))
 
 
@@ -174,7 +174,8 @@ class RelocalizationNode(object):
             else:
                 persisted = self._read_active_state()
                 has_persisted_tf = bool(
-                    persisted is not None
+                    self.config["backend"] != "ducted_uav"
+                    and persisted is not None
                     and persisted.get("map_id") == message["map_id"]
                     and persisted.get("status") == "localized"
                     and persisted.get("map_from_odom") is not None
@@ -418,6 +419,8 @@ class RelocalizationNode(object):
                 "state": "failed", "reason": reason})
 
     def _persist_latest_tf(self):
+        if self.config.get("backend") == "ducted_uav" and self.state != "localized":
+            return
         if not self._tf_dirty or self._latest_tf is None or not self._latest_tf_map_id:
             return
         try:

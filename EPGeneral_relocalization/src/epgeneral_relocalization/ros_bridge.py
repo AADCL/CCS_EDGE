@@ -376,5 +376,11 @@ class RosBridge(object):
                         callback(False, None, "map<-odom TF unavailable before timeout")
                     return
                 sample = cached_sample
+            if self.config.get("backend") == "ducted_uav":
+                age = float(self.rospy.Time.now().to_sec()) - float(cached_stamp or 0.0)
+                if not -0.05 <= age <= self.config["localization_health_timeout_seconds"]:
+                    if self._monitor_is_current(generation):
+                        callback(False, None, "UAV map<-odom TF is stale")
+                    return
             if self._monitor_is_current(generation):
                 callback(True, sample, "")

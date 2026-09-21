@@ -512,7 +512,7 @@ class RosMapStreamNode(object):
                 session.filtered_pcd_path = scout_filtered_pcd_path(
                     self.config, session.map_name)
                 source_pcd = session.filtered_pcd_path
-            elif self.config["integration_backend"] == "ground_air_service":
+            elif self.config["integration_backend"] in ("ground_air_service", "ducted_uav"):
                 source_pcd = session.paths.pcd_path
             session.accumulator_pcd_baseline = file_fingerprint(source_pcd)
             session.mapping_started_at_ns = time.time_ns()
@@ -661,7 +661,7 @@ class RosMapStreamNode(object):
 
     def _generate_artifact(self, session):
         commands = build_integration_commands(self.config, session.paths.values)
-        if self.config["integration_backend"] == "ground_air_service":
+        if self.config["integration_backend"] in ("ground_air_service", "ducted_uav"):
             self._generate_ground_air_artifact(session, commands)
             return
         if self.config["integration_backend"] in ("scout_finalize", "managed_finalize"):
@@ -724,7 +724,7 @@ class RosMapStreamNode(object):
         try:
             self._send_session_message(session, "artifact_status", {
                 "state": "generating",
-                "message": "saving ground-air map through save_mapping.launch",
+                "message": "saving map through native service",
                 "reason": ""})
             self._run_command(
                 "save_ground_air_map", commands["save_map"],

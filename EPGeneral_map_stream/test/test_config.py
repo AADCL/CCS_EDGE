@@ -56,7 +56,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config["device_ip"], expected_device["ip"])
         self.assertEqual(config["protocol_id"], "ccs-map-stream-v2")
         self.assertEqual(config["schema_version"], 6)
-        self.assertEqual(config["capability_version"], "0.13.2")
+        self.assertEqual(config["capability_version"], "0.13.3")
         self.assertEqual(config["input_cloud_topic"], "/livox/lidar")
         self.assertEqual(config["input_imu_topic"], "/livox/imu")
         self.assertEqual(config["input_cloud_message_type"], "livox_ros_driver2/CustomMsg")
@@ -90,6 +90,12 @@ class ConfigTests(unittest.TestCase):
     def test_unsupported_lidar_input_is_rejected(self):
         path = self._modified_mapping("livox_ros_driver2/CustomMsg", "std_msgs/String")
         with self.assertRaisesRegex(ConfigError, "CustomMsg"):
+            load_config(path, DEVICE)
+
+    def test_backend_error_lists_ducted_uav(self):
+        path = self._mutated_mapping(
+            lambda payload: payload["integrations"].update(backend="unsupported"))
+        with self.assertRaisesRegex(ConfigError, "ducted_uav"):
             load_config(path, DEVICE)
 
     def test_zero_extrinsic_quaternion_is_rejected(self):

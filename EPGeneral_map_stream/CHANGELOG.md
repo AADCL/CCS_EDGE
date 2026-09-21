@@ -1,6 +1,12 @@
 # 更新记录
 
-<!-- epgeneral_map_stream_VERSION: 0.13.2 -->
+<!-- epgeneral_map_stream_VERSION: 0.13.3 -->
+
+## v0.13.3 - 2026-09-20
+
+- 修复 `ducted_uav` 使用 `rosrun` 执行集成预检时，将 PATH 中的命令误判为本地脚本缺失，导致 `prepare_mapping` 返回 `MAP_GENERATION_UNAVAILABLE`。
+- 裸命令先通过 PATH 解析，再校验文件及执行权限；显式脚本路径继续直接校验，子进程参数使用副本，保持调用方配置不变。
+- 补充 PATH 命令成功、缺失、不可执行及显式路径回归测试，并声明提供 `rosrun` 的 `rosbash` 运行依赖。
 
 ## v0.13.2 - 2026-09-05
 

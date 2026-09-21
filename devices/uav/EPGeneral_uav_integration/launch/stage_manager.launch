@@ -1,0 +1,6 @@
+<launch>
+ <arg name="workspace" default="/home/nrc/ccs_edge_ws"/>
+ <node pkg="epgeneral_uav_integration" type="uav_stage_node.py" name="uav_stage_manager" output="screen" required="true">
+  <param name="workspace" value="$(arg workspace)"/>
+ </node>
+</launch>

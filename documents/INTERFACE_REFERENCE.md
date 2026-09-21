@@ -195,6 +195,14 @@ Ground-Air 输入 `/cloud_registered` 在 camera_init，预览需转换为 odom�
 | `device.ip` | string；必填 | 设备自身 IP，不能填地面站地址；整套建图/任务使用 IPv4。MQTT 单包解析器也支持 IPv6，不代表整套支持 IPv6 |
 
 <a id="documents-interface-reference-md-5-epgeneral_mqtavyaml"></a>
+
+UAV 补充字段：
+
+| 参数 | 说明 |
+| --- | --- |
+| `deployment.enabled` | UAV profile 配置项，见部署指南约束。 |
+| `deployment.state` | UAV profile 配置项，见部署指南约束。 |
+
 ## 5. epgeneral_mqtav.yaml
 
 本文件没有配置 schema 字段。以下频率为 Hz，时间为秒。状态/电池 mapping 值是消息字段路径，不是常量；null 表示不提供该项。
@@ -290,6 +298,15 @@ descriptor 的 name/display_name/type/level 共同决定 SHA-256 descriptor_hash
 | `deployment.enabled` | bool；可选元数据 | 不控制启停，实际由脚本/launch 决定 |
 
 <a id="documents-interface-reference-md-8-map_streamyaml"></a>
+
+UAV 补充字段：
+
+| 参数 | 说明 |
+| --- | --- |
+| `input_mode` | 输入模式；UAV 使用 rtsp，原 ROS 图像 launch 保留。 |
+| `rtsp_codec` | h264 或 h265，UAV 为 h265。 |
+| `rtsp_uri` | 真实 A8 RTSP 地址。 |
+
 ## 8. map_stream.yaml
 
 配置 schema=6，协议为 ccs-map-stream-v2。除明确写“默认/可选”的项外，下表均必须提供；数值示例来自公共模板，设备 profile 可能不同。backend 不会消除基础 integrations 配置结构，保留 profile 中的兼容占位字段，勿自行删除。
@@ -589,6 +606,13 @@ adapter 整段可省略，此时仅运行通用协调器；提供非空 adapter 
 <a id="documents-interface-reference-md-11-launch-参数与脚本环境变量"></a>
 | `adapter.clear_costmaps_service` | string；可选，无默认服务 | 非空 ROS std_srvs/Empty 服务名；UGV_003 为 /move_base/clear_costmaps。wheeltec_r550p 后端使能前清理代价地图；修改 task_control.yaml 并重启适配器。 |
 | `adapter.clear_costmaps_settle_seconds` | number，秒；默认 0.30 | 0.01–5.0，必须同时配置 clear_costmaps_service；清理后等待时间；修改同一文件并重启。 |
+
+
+UAV 补充字段：
+
+| 参数 | 说明 |
+| --- | --- |
+| `adapter.workspace` | 独立 CCS 工作空间及受管进程边界。 |
 
 ## 11. launch 参数与脚本环境变量
 
@@ -1529,3 +1553,34 @@ rossrv md5 std_srvs/Trigger
 验收记录至少包含：profile 与配置键、实际 topic/service、类型/MD5、消息字段、frame、频率/新鲜度、发布者、检查时的生命周期阶段、命令及结论。相机 GO2_3 独立 readiness 还要求两帧递增且年龄≤3秒；只看到节点或一次 echo 不足以判 ready。SRT 参数为 UDP9000、120ms、2500kbps，帧率15；USB2.1/Right MIPI 历史告警不自动算已修复。
 
 急停复位步骤见[使用手册的 UGV_003 步骤](USER_MANUAL.md#documents-user-manual-md-ugv_003-%E6%8C%AF%E8%8D%A1%E4%B8%8E%E4%BA%BA%E5%B7%A5%E6%80%A5%E5%81%9C%E5%A4%8D%E4%BD%8D)和[Go2 步骤](USER_MANUAL.md#documents-user-manual-md-go2-%E4%BA%BA%E5%B7%A5%E6%80%A5%E5%81%9C%E5%A4%8D%E4%BD%8D)。禁止通过接口联调命令意外使能、发布非零速度、运动目标或清除安全文件。
+
+### UAV / uav_001
+
+| 配置字段 | 话题或服务 | 类型 |
+| --- | --- | --- |
+| `epgeneral_mqtav.yaml: ros.state.topic` | `/mavros/state` | mavros_msgs/State |
+| `epgeneral_mqtav.yaml: ros.battery.topic` | `/mavros/battery` | sensor_msgs/BatteryState |
+| `epgeneral_mqtav.yaml: ros.mission.topic` | `/uav/UAV_001/task_status` | std_msgs/String |
+| `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg |
+| `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu |
+| `map_stream.yaml: ros.stream.cloud.topic` | `/ducted/mapping/cloud_registered` | sensor_msgs/PointCloud2 |
+| `map_stream.yaml: ros.stream.pose.topic` | `/ducted/localization/odom` | nav_msgs/Odometry |
+| `map_stream.yaml: integrations.map_accumulator.service` | `/ducted/mapping/save_map` | — |
+| `relocalization.yaml: ros.initial_pose_topic` | `/ducted/relocalization/initialpose` | — |
+| `relocalization.yaml: ros.map_topic` | `/ducted/relocalization/global_map` | — |
+| `relocalization.yaml: ros.localization_health_topic` | `/ducted/localization/map_ready` | — |
+| `task_control.yaml: ros.command_topic` | `/uav/UAV_001/execution_command` | — |
+| `task_control.yaml: ros.feedback_topic` | `/uav/UAV_001/execution_feedback` | — |
+| `task_control.yaml: ros.status_topic` | `/uav/UAV_001/task_status` | — |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/mavros/local_position/pose` | geometry_msgs/PoseStamped |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/ducted/localization/body_odom` | nav_msgs/Odometry |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/mavros/imu/data` | sensor_msgs/Imu |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | — |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | — |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/ducted/localization/odom` | — |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/map_pgm` | — |
+| `udp_telemetry.yaml: descriptors[octomap_mapping].source.topic` | `/octomap_binary` | — |
+| `udp_telemetry.yaml: descriptors[occupancy_grid_mapping].source.topic` | `/map` | — |
+| `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/uav/UAV_001/stage_status` | std_msgs/String |
+
+RTSP launch 增加 `decoder_preload` 参数，仅 UAV ARM64 设置 libgomp 预加载路径。/ctrl_cmd/state 是整数 ROS 参数。完整边界见 [UAV 指南](devices/uav/DEPLOYMENT_GUIDE.md)。

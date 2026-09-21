@@ -15,7 +15,7 @@
 </p>
 
 CCS_EDGE 是 [CCS 地面站](https://github.com/AADCL/CCS_dev)配套的独立 ROS 端侧仓库，
-为四足机器人、无人车和 Ground-Air 设备提供统一的通信、地图与任务接口。
+为四足机器人、无人车、涵道无人机和 Ground-Air 设备提供统一的通信、地图与任务接口。
 通过 MQTT、UDP、SRT 通道与地面站协作，并接入设备已有的底盘、传感器和算法工作空间。
 
 **快速入口：** [快速开始](#快速开始) · [设备与 profile](#设备与-profile) ·
@@ -33,8 +33,8 @@ CCS_EDGE 是 [CCS 地面站](https://github.com/AADCL/CCS_dev)配套的独立 RO
 | 重定位 | 地图切换、初始位姿接入、定位状态与 TF 上报 |
 | 任务与控制 | 任务接收和执行协调、导航适配、控制权与急停处理 |
 
-**仓库规模：9 个 ROS 包 · 4 类机型 · 7 套 profile。**
-七个公共包直接放在仓库根目录，Go2 与 Ground-Air 专用包放在对应的 `devices/` 目录。
+**仓库规模：10 个 ROS 包 · 5 类机型 · 8 套 profile。**
+七个公共包直接放在仓库根目录，Go2、UAV 与 Ground-Air 专用包放在对应的 `devices/` 目录。
 每台设备选择七个公共包及所需专用包；公共包内部已有的设备后端继续保留。
 
 ## 选择获取方式
@@ -45,7 +45,7 @@ CCS_EDGE 是 [CCS 地面站](https://github.com/AADCL/CCS_dev)配套的独立 RO
 | CCS_dev 子模块 | 地面站与端侧配套开发、固定版本构建 | 初始化后进入 `edge_side_pkg/` |
 | 端侧配套 ZIP | 从地面站发行产物获取端侧源码与部署资料 | 解压后进入 `edge_side_pkg/` |
 
-端侧 ZIP 完整分发九个包，仍需在设备上选择包并进行 catkin 构建。
+端侧 ZIP 完整分发十个包，仍需在设备上选择包并进行 catkin 构建。
 地面站 Windows/Ubuntu 安装包不能代替 ROS 端侧部署。源码与 ZIP 使用相同的 profile 准备入口。
 
 <a id="获取与使用"></a>
@@ -121,6 +121,7 @@ rospack find epgeneral_device_config
 | Go2 | `go2_edu`、`go2_robot2`、`go2_robot3` | 七公共包；Robot2/3 另加 Go2 integration | [部署指南](documents/devices/go2/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/go2/DEPLOYMENT_RECORD.md) |
 | Scout Mini | `scout_mini` | 七公共包 | [部署指南](documents/devices/scout_mini/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/scout_mini/DEPLOYMENT_RECORD.md) |
 | Wheeltec R550P | `wheeltec_r550p`、`wheeltec_r550p_02` | 七公共包 | [部署指南](documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md) |
+| UAV | `uav_001` | 七公共包，另加 UAV integration | [部署指南](documents/devices/uav/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/uav/DEPLOYMENT_RECORD.md) · [部署报告](documents/devices/uav/DEPLOYMENT_REPORT.md) |
 | Ground-Air AGV | `ground_air_agv` | 七公共包，另加 Ground-Air control | [部署指南](documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/ground_air_agv/DEPLOYMENT_RECORD.md) |
 
 配置、部署脚本、适配 launch、补丁与校验文件统一位于 `devices/<机型>/profiles/<profile>/`。
@@ -131,6 +132,7 @@ rospack find epgeneral_device_config
 | Go2 legacy | `go2_edu` 一键脚本不启动任务包 |
 | Go2 Robot2/Robot3 | 按就绪状态启动任务协调器，增加原生 Go2 工作空间依赖 |
 | Wheeltec UGV_003 / UGV_004 | UGV_003 可启动 Gemini 视频；UGV_004 默认不启动视频，两者使用各自的导航适配入口 |
+| UAV_001 | 静态、建图和飞行权限显式分离；飞行前要求新鲜的 FCU、定位与地图状态 |
 | Ground-Air | 保持手动启动与阶段互斥；外部 `ground_air_msgs` 服务定义须在设备上核验 |
 
 ## 功能包
@@ -143,10 +145,11 @@ rospack find epgeneral_device_config
 | [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.4.1 | MQTT/MAVLink 通信与状态接入 |
 | [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.3.1 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.1.2 | 相机接入与 SRT 视频传输 |
-| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.13.2 | 地图传输与建图流程 |
+| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.13.3 | 地图传输与建图流程 |
 | [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.4.0 | 重定位与定位状态上报 |
 | [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.3 | 任务与导航执行协调 |
 | [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.2 | Go2 原生控制、状态与流程适配 |
+| [EPGeneral_uav_integration](devices/uav/EPGeneral_uav_integration/README.md) | `epgeneral_uav_integration` | 0.1.0 | UAV 原生建图、重定位与飞行阶段适配 |
 | [EPGeneral_ground_air_control](devices/ground_air_agv/EPGeneral_ground_air_control/README.md) | `epgeneral_ground_air_control` | 0.2.0 | Ground-Air 地面任务、控制权与急停 |
 
 ## 目录结构
@@ -164,6 +167,7 @@ CCS_EDGE/
 │   ├── go2/                         # 专用包 + 三套 profile
 │   ├── scout_mini/                  # 一套 profile
 │   ├── wheeltec_r550p/              # 两套 profile
+│   ├── uav/                         # 专用包 + 一套 profile
 │   └── ground_air_agv/              # 专用包 + 一套 profile
 ├── documents/
 │   ├── USER_MANUAL.md
@@ -189,7 +193,7 @@ CCS_EDGE/
 | --- | --- |
 | [使用手册](documents/USER_MANUAL.md) | 从零部署、各包使用、启停、日志、排障、升级与回滚 |
 | [接口与配置参考](documents/INTERFACE_REFERENCE.md) | 跨工作空间接入、话题/消息/服务/action/TF、配置字段、launch 参数与授时 |
-| [设备部署资料](#设备与-profile) | 四类机型、七套 profile 的当前指南与历史记录 |
+| [设备部署资料](#设备与-profile) | 五类机型、八套 profile 的当前指南与历史记录 |
 | [地面站接口总册](https://github.com/AADCL/CCS_dev/blob/dbe85904cdbae3d3b837f8816f29d1f030d7bd5a/docs/EDGE_DEVICE_INTERFACES.md) | 配套源码基线中的网络消息、通道与协议约束 |
 | [布局清单](edge-layout.json) | 公共包、专用包及 profile 的机器可读选择规则 |
 | [迁移清单](migration-manifest.json) | 来源提交、原文件哈希与新目录映射 |
