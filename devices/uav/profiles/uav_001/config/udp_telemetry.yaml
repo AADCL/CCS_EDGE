@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 protocol_id: ccs-udp-telemetry-v1
 network:
   destination_host: 192.168.50.101
@@ -15,6 +15,13 @@ descriptors:
     mapping:
       position: pose.position
       orientation: pose.orientation
+    mode: ros_fields
+    stale_policy: hold
+    max_age_seconds: 3.0
+    aggregation: mean
+    max_samples: 1000
+    units:
+      position: m
 - name: vision_pose
   display_name: 视觉传感器位姿
   type: pose
@@ -25,6 +32,13 @@ descriptors:
     mapping:
       position: pose.pose.position
       orientation: pose.pose.orientation
+    mode: ros_fields
+    stale_policy: hold
+    max_age_seconds: 3.0
+    aggregation: mean
+    max_samples: 1000
+    units:
+      position: m
 - name: imu
   display_name: IMU
   type: imu
@@ -36,6 +50,14 @@ descriptors:
       orientation: orientation
       angular_velocity: angular_velocity
       linear_acceleration: linear_acceleration
+    mode: ros_fields
+    stale_policy: hold
+    max_age_seconds: 3.0
+    aggregation: mean
+    max_samples: 1000
+    units:
+      angular_velocity: rad/s
+      linear_acceleration: m/s2
 - name: livox_pointcloud
   display_name: 雷达点云
   type: pointcloud_status
@@ -43,6 +65,7 @@ descriptors:
   source:
     topic: /livox/lidar
     timeout_seconds: 1.0
+    mode: topic_freshness
 - name: livox_driver
   display_name: Livox 驱动
   type: availability
@@ -50,6 +73,7 @@ descriptors:
   source:
     topic: /livox/lidar
     timeout_seconds: 3.0
+    mode: topic_freshness
 - name: fastlio2
   display_name: FAST-LIO2 定位状态
   type: availability
@@ -57,6 +81,7 @@ descriptors:
   source:
     topic: /ducted/localization/odom
     timeout_seconds: 3.0
+    mode: topic_freshness
 - name: pgm_mapping
   display_name: PGM 地图生成状态
   type: availability
@@ -64,6 +89,7 @@ descriptors:
   source:
     topic: /map_pgm
     timeout_seconds: 3.0
+    mode: topic_freshness
 - name: octomap_mapping
   display_name: 八叉树地图生成状态
   type: availability
@@ -71,6 +97,7 @@ descriptors:
   source:
     topic: /octomap_binary
     timeout_seconds: 3.0
+    mode: topic_freshness
 - name: occupancy_grid_mapping
   display_name: 占据栅格图生成状态
   type: availability
@@ -78,13 +105,22 @@ descriptors:
   source:
     topic: /map
     timeout_seconds: 3.0
+    mode: topic_freshness
 - name: mapping_mode
   display_name: 当前建图模式
   type: text_status
   level: 3
   source:
-    topic: /uav/UAV_001/stage_status
+    topic: /uav/{device_id}/stage_status
     message_type: std_msgs/String
     timeout_seconds: 3.0
     mapping:
       value: data
+    mode: ros_fields
+    stale_policy: hold
+    max_age_seconds: 3.0
+    aggregation: latest
+    max_samples: 1000
+runtime:
+  link_status_topic: /epgeneral_udp_telemetry/link/udp_tx
+  diagnostics_topic: /epgeneral_udp_telemetry/diagnostics

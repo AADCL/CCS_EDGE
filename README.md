@@ -114,7 +114,7 @@ rospack find epgeneral_device_config
 修改仓库中的 profile 原件后，还需安装到设备实际读取的位置。各包的配置覆盖方式不同，均无热重载；
 `deployment.enabled` 等说明性字段不能代替实际启停开关。参数、launch 参数和 `CCS_*` 环境变量见[接口参考](documents/INTERFACE_REFERENCE.md)。
 
-`epgeneral_mqtav` 0.5.0 须显式传入 `config_dir`，不自动选择样例身份；参见[迁移及通用接入说明](epgeneral_mqtav/README.md)。
+`epgeneral_mqtav` 0.5.0 和 `epgeneral_udp_telemetry` 0.4.0 须显式选择配置目录或完整文件对，不自动选择样例身份；参见 [MQTT 接入说明](epgeneral_mqtav/README.md)及 [UDP 重构与迁移](documents/UDP_TELEMETRY_GENERIC.md)。
 
 ## 设备与 profile
 
@@ -143,9 +143,9 @@ rospack find epgeneral_device_config
 
 | 包文档 / 目录 | ROS 包名 | 版本 | 职责 |
 | --- | --- | --- | --- |
-| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.1.4 | 设备身份与共享配置 |
+| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.2.0 | 设备身份与共享配置 |
 | [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.5.0 | 配置驱动 ROS 健康状态 MQTT 上报 |
-| [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.3.1 | UDP 遥测与状态描述 |
+| [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.4.0 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.1.2 | 相机接入与 SRT 视频传输 |
 | [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
 | [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.5.0 | 重定位与定位状态上报 |

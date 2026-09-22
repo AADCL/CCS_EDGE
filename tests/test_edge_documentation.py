@@ -17,6 +17,7 @@ REFERENCE = EDGE / "documents/INTERFACE_REFERENCE.md"
 def leaf_keys(value, prefix=""):
     if isinstance(value, dict):
         for key, child in value.items():
+            key = str(key)
             yield from leaf_keys(child, prefix + "." + key if prefix else key)
     elif isinstance(value, list) and value and isinstance(value[0], dict):
         for child in value:
@@ -116,6 +117,7 @@ class EdgeDocumentationTests(unittest.TestCase):
                     yield from interfaces(item, f"{prefix}[{name}]")
             elif isinstance(value, dict):
                 for key, child in value.items():
+                    key = str(key)
                     path = prefix + "." + key if prefix else key
                     if isinstance(child, str) and (key in ("topic", "service")
                             or key.endswith(("_topic", "_service", "_action", "_param"))):

@@ -1,0 +1,28 @@
+# Example only; register this descriptor set in the ground station before use.
+schema_version: 2
+protocol_id: ccs-udp-telemetry-v1
+network:
+  destination_host: 192.0.2.10
+  destination_port: 14560
+  max_datagram_bytes: 16384
+descriptors:
+- name: global_pose
+  display_name: 全局位姿
+  type: pose
+  level: 1
+  source:
+    topic: /devices/{device_id}/pose
+    message_type: geometry_msgs/PoseStamped
+    mapping:
+      position: pose.position
+      orientation: pose.orientation
+    mode: ros_fields
+    stale_policy: invalidate
+    max_age_seconds: 2.0
+    aggregation: mean
+    max_samples: 1000
+    units:
+      position: m
+runtime:
+  link_status_topic: /devices/{device_id}/link/udp_tx
+  diagnostics_topic: /devices/{device_id}/diagnostics

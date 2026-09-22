@@ -1,15 +1,13 @@
 import socket
-import json
-import os
-import re
-import stat
+import ipaddress
 import threading
 import time
 import uuid
 
-from .config import LEVEL_RATES, ConfigError, load_config
+from .config import LEVEL_RATES, ConfigError, source_mode
 from .protocol import ProtocolError, encode_envelope
-from .smoothing import TelemetrySampler, read_path
+from .smoothing import TelemetrySampler
+from .sources import extract_sample, file_snapshot, validate_ros_sources
 
 
 class RosUdpTelemetryNode(object):
@@ -20,7 +18,9 @@ class RosUdpTelemetryNode(object):
         self.config.setdefault("link_status_topic", namespace + "/link/udp_tx")
         self.config.setdefault("diagnostics_topic", namespace + "/diagnostics")
         self.session_id = uuid.uuid4().hex
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket = None
+        self._classes = None
+        self._closed = False
         self.destination = (config["destination_host"], config["destination_port"])
         self.sequences = {"heartbeat": 0, 1: 0, 2: 0, 3: 0}
         self.samplers = {item["name"]: TelemetrySampler(item) for item in config["descriptors"]}
@@ -38,102 +38,75 @@ class RosUdpTelemetryNode(object):
         self.send_lock = threading.Lock()
 
     def start(self):
-        import roslib.message
-        from diagnostic_msgs.msg import DiagnosticArray
-        from std_msgs.msg import Bool
+        if self._closed or self.socket is not None:
+            raise RuntimeError("UDP telemetry node cannot be started twice or after close")
+        try:
+            import roslib.message
+            from diagnostic_msgs.msg import DiagnosticArray
+            from std_msgs.msg import Bool
 
-        self.link_publisher = self.rospy.Publisher(
-            self.config["link_status_topic"], Bool, queue_size=1, latch=True)
-        self.diagnostics_publisher = self.rospy.Publisher(
-            self.config["diagnostics_topic"], DiagnosticArray, queue_size=1, latch=False)
+            if self._classes is None:
+                self._classes = validate_ros_sources(self.config)
+            family = socket.AF_INET6 if ipaddress.ip_address(self.destination[0]).version == 6 else socket.AF_INET
+            self.socket = socket.socket(family, socket.SOCK_DGRAM)
+            self.rospy.on_shutdown(self.close)
+            self.link_publisher = self.rospy.Publisher(
+                self.config["link_status_topic"], Bool, queue_size=1, latch=True)
+            self.diagnostics_publisher = self.rospy.Publisher(
+                self.config["diagnostics_topic"], DiagnosticArray, queue_size=1, latch=False)
 
-        for descriptor in self.config["descriptors"]:
-            source = descriptor["source"]
-            if source.get("kind") == "pgm_file":
-                self.rospy.loginfo("UDP telemetry file source name=%s state=%s root=%s",
-                                   descriptor["name"], source["state_file"], source["map_root"])
-                continue
-            if descriptor["type"] in {"availability", "pointcloud_status"}:
-                message_class = self.rospy.AnyMsg
-            else:
-                message_class = roslib.message.get_message_class(source["message_type"])
-                if message_class is None:
-                    raise ConfigError("ROS message type is unavailable: %s" % source["message_type"])
-            callback = self._callback_for(descriptor)
-            self.subscribers.append(self.rospy.Subscriber(source["topic"], message_class, callback, queue_size=50))
+            for descriptor in self.config["descriptors"]:
+                source = descriptor["source"]
+                if source_mode(descriptor) == "disabled":
+                    self.rospy.loginfo("UDP telemetry source disabled: %s", descriptor["name"])
+                    continue
+                if source_mode(descriptor) == "file_status":
+                    self.rospy.loginfo("UDP telemetry file source name=%s state=%s root=%s",
+                                       descriptor["name"], source["state_file"], source["map_root"])
+                    continue
+                if source_mode(descriptor) == "topic_freshness":
+                    message_class = self.rospy.AnyMsg
+                else:
+                    message_class = self._classes[source["message_type"]]
+                    if message_class is None:
+                        raise ConfigError("ROS message type is unavailable: %s" % source["message_type"])
+                callback = self._callback_for(descriptor)
+                self.subscribers.append(self.rospy.Subscriber(source["topic"], message_class, callback, queue_size=source.get("queue_size", 50)))
+                self.rospy.loginfo(
+                    "UDP telemetry source name=%s type=%s level=%d topic=%s message_type=%s mapping=%s",
+                    descriptor["name"], descriptor["type"], descriptor["level"], source["topic"],
+                    source.get("message_type", "AnyMsg"), source.get("mapping", {}))
+            self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0), self._send_heartbeat))
+            self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0), self._publish_link_status))
+            for level, rate in LEVEL_RATES.items():
+                self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0 / rate), lambda event, selected=level: self._send_level(selected)))
             self.rospy.loginfo(
-                "UDP telemetry source name=%s type=%s level=%d topic=%s message_type=%s mapping=%s",
-                descriptor["name"], descriptor["type"], descriptor["level"], source["topic"],
-                source.get("message_type", "AnyMsg"), source.get("mapping", {}))
-        self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0), self._send_heartbeat))
-        self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0), self._publish_link_status))
-        for level, rate in LEVEL_RATES.items():
-            self.timers.append(self.rospy.Timer(self.rospy.Duration(1.0 / rate), lambda event, selected=level: self._send_level(selected)))
-        self.rospy.on_shutdown(self.close)
-        self.rospy.loginfo(
-            "ROS UDP telemetry started device=%s session=%s destination=%s:%d descriptor_hash=%s rates=%s",
-            self.config["device_id"], self.session_id, self.destination[0], self.destination[1],
-            self.config["descriptor_hash"], LEVEL_RATES)
+                "ROS UDP telemetry started device=%s session=%s destination=%s:%d descriptor_hash=%s rates=%s",
+                self.config["device_id"], self.session_id, self.destination[0], self.destination[1],
+                self.config["descriptor_hash"], LEVEL_RATES)
+
+        except Exception:
+            self.close()
+            raise
 
     def _callback_for(self, descriptor):
         sampler = self.samplers[descriptor["name"]]
-        data_type = descriptor["type"]
-        source = descriptor["source"]
-        if data_type in {"availability", "pointcloud_status"}:
-            def touch_callback(message):
+        if source_mode(descriptor) == "topic_freshness":
+            def touch_callback(_message):
                 sampler.touch(time.monotonic())
                 self._record_sample_result(descriptor, True, "")
             return touch_callback
-        if data_type == "text_status":
-            value_path = source.get("mapping", {}).get("value", "data")
 
-            def text_callback(message):
-                try:
-                    value = str(read_path(message, value_path)).strip()
-                    accepted = sampler.add({"value": value[:128]}, time.monotonic())
-                    self._record_sample_result(descriptor, accepted, sampler.last_rejection_reason)
-                except (AttributeError, TypeError, ValueError) as exc:
-                    sampler.reject(exc)
-                    self._record_sample_result(descriptor, False, exc)
-                    self.rospy.logwarn_throttle(5.0, "%s mapping failed: %s" % (descriptor["name"], exc))
-            return text_callback
-        if data_type == "pose":
-            mapping = source.get("mapping", {})
-            position_path = mapping.get("position", "pose.position")
-            orientation_path = mapping.get("orientation", "pose.orientation")
-
-            def pose_callback(message):
-                try:
-                    position = read_path(message, position_path)
-                    orientation = read_path(message, orientation_path)
-                    accepted = sampler.add({
-                        "x": float(position.x), "y": float(position.y), "z": float(position.z),
-                        "quaternion": (float(orientation.x), float(orientation.y), float(orientation.z), float(orientation.w)),
-                    }, time.monotonic())
-                    self._record_sample_result(descriptor, accepted, sampler.last_rejection_reason)
-                except (AttributeError, TypeError, ValueError) as exc:
-                    sampler.reject(exc)
-                    self._record_sample_result(descriptor, False, exc)
-                    self.rospy.logwarn_throttle(5.0, "%s mapping failed: %s" % (descriptor["name"], exc))
-            return pose_callback
-        mapping = source.get("mapping", {})
-
-        def imu_callback(message):
+        def fields_callback(message):
             try:
-                orientation = read_path(message, mapping.get("orientation", "orientation"))
-                angular = read_path(message, mapping.get("angular_velocity", "angular_velocity"))
-                linear = read_path(message, mapping.get("linear_acceleration", "linear_acceleration"))
-                accepted = sampler.add({
-                    "quaternion": (float(orientation.x), float(orientation.y), float(orientation.z), float(orientation.w)),
-                    "angular_velocity_x": float(angular.x), "angular_velocity_y": float(angular.y), "angular_velocity_z": float(angular.z),
-                    "linear_acceleration_x": float(linear.x), "linear_acceleration_y": float(linear.y), "linear_acceleration_z": float(linear.z),
-                }, time.monotonic())
+                sample = extract_sample(descriptor, message)
+                accepted = sampler.add(sample, time.monotonic())
                 self._record_sample_result(descriptor, accepted, sampler.last_rejection_reason)
-            except (AttributeError, TypeError, ValueError) as exc:
+            except (AttributeError, KeyError, TypeError, ValueError, OverflowError) as exc:
                 sampler.reject(exc)
                 self._record_sample_result(descriptor, False, exc)
                 self.rospy.logwarn_throttle(5.0, "%s mapping failed: %s" % (descriptor["name"], exc))
-        return imu_callback
+        return fields_callback
 
     def _record_sample_result(self, descriptor, accepted, reason):
         name = descriptor["name"]
@@ -158,8 +131,11 @@ class RosUdpTelemetryNode(object):
                 continue
             sampler = self.samplers[descriptor["name"]]
             try:
-                if descriptor["source"].get("kind") == "pgm_file":
-                    payload[descriptor["name"]] = self._pgm_file_snapshot(descriptor)
+                if source_mode(descriptor) == "file_status":
+                    value = file_snapshot(descriptor)
+                    payload[descriptor["name"]] = value
+                    sampler.touch(now)
+                    self._record_sample_result(descriptor, value["status"] == "available", "artifact unavailable")
                 else:
                     payload[descriptor["name"]] = sampler.snapshot(now)
             except Exception as exc:
@@ -168,32 +144,13 @@ class RosUdpTelemetryNode(object):
                 self._record_sample_result(descriptor, False, exc)
         self._send("telemetry", level, level, payload)
 
-    @staticmethod
-    def _pgm_file_snapshot(descriptor):
-        source = descriptor["source"]
-        state_path = os.path.abspath(os.path.expanduser(source["state_file"]))
-        root = os.path.abspath(os.path.expanduser(source["map_root"]))
-        try:
-            with open(state_path, "r") as stream:
-                state_value = json.load(stream)
-            map_id = state_value.get("map_id")
-            if not isinstance(map_id, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", map_id):
-                raise ValueError("active map id is invalid")
-            map_dir = os.path.abspath(os.path.join(root, map_id))
-            if os.path.commonpath([root, map_dir]) != root or os.path.islink(map_dir):
-                raise ValueError("active map path is unsafe")
-            pgm_path = os.path.join(map_dir, "map.pgm")
-            file_stat = os.lstat(pgm_path)
-            available = stat.S_ISREG(file_stat.st_mode) and not stat.S_ISLNK(file_stat.st_mode)
-            return {"valid": True, "status": "available" if available else "unavailable",
-                    "sample_age_seconds": 0.0, "map_id": map_id}
-        except (IOError, OSError, ValueError, TypeError):
-            map_id = locals().get("map_id")
-            return {"valid": True, "status": "unavailable", "sample_age_seconds": 0.0,
-                    "map_id": map_id if isinstance(map_id, str) else None}
+    # Backward-compatible helper for existing integrations/tests.
+    _pgm_file_snapshot = staticmethod(file_snapshot)
 
     def _send(self, message_type, sequence_key, level, payload):
         with self.send_lock:
+            if self._closed or self.socket is None:
+                return
             sequence = self.sequences[sequence_key]
             try:
                 encoded = encode_envelope(self.config, self.session_id, message_type, sequence, payload, level)
@@ -252,21 +209,35 @@ class RosUdpTelemetryNode(object):
             source_status.hardware_id = self.config["device_id"]
             stats = self.samplers[descriptor["name"]].statistics(now)
             source_statistics[descriptor["name"]] = stats
-            if stats["accepted_count"] == 0:
+            mode = source_mode(descriptor)
+            source = descriptor["source"]
+            age = stats["last_sample_age_seconds"]
+            stale = age is not None and (
+                (mode == "topic_freshness" and age > source.get("timeout_seconds", 3.0)) or
+                (source.get("stale_policy") == "invalidate" and age > source.get("max_age_seconds", 3.0)))
+            if mode == "disabled":
+                source_status.level = DiagnosticStatus.OK
+                source_status.message = "source disabled"
+            elif stale:
+                source_status.level = DiagnosticStatus.WARN
+                source_status.message = "source stale"
+            elif stats["accepted_count"] == 0:
                 source_status.level = DiagnosticStatus.WARN
                 source_status.message = "waiting for valid sample"
             elif self.sample_states[descriptor["name"]] is False:
                 source_status.level = DiagnosticStatus.WARN
-                source_status.message = stats["last_rejection_reason"] or "latest sample rejected"
+                source_status.message = "artifact unavailable" if mode == "file_status" else stats["last_rejection_reason"] or "latest sample rejected"
             else:
                 source_status.level = DiagnosticStatus.OK
                 source_status.message = "receiving valid samples"
             age = stats["last_sample_age_seconds"]
             source = descriptor["source"]
             source_status.values = [
+                KeyValue(key="mode", value=mode),
                 KeyValue(key="topic", value=source.get("topic", source.get("state_file", "file"))),
                 KeyValue(key="message_type", value=source.get("message_type", "AnyMsg")),
                 KeyValue(key="level", value=str(descriptor["level"])),
+                KeyValue(key="dropped_count", value=str(stats["dropped_count"])),
                 KeyValue(key="received_count", value=str(stats["received_count"])),
                 KeyValue(key="accepted_count", value=str(stats["accepted_count"])),
                 KeyValue(key="rejected_count", value=str(stats["rejected_count"])),
@@ -287,33 +258,26 @@ class RosUdpTelemetryNode(object):
         self.rospy.loginfo_throttle(30.0, "UDP telemetry source summary: %s" % summary)
 
     def close(self):
-        for timer in self.timers:
-            timer.shutdown()
-        self.timers = []
-        try:
-            self.socket.close()
-        except OSError:
-            pass
+        with self.send_lock:
+            if self._closed:
+                return
+            self._closed = True
+            sock, self.socket = self.socket, None
+        # Mark closed before shutdown: timer callbacks cannot send on a closed socket.
+        actions = [timer.shutdown for timer in self.timers]
+        actions.extend(subscriber.unregister for subscriber in self.subscribers)
+        actions.extend(publisher.unregister for publisher in (self.link_publisher, self.diagnostics_publisher) if publisher is not None)
+        if sock is not None:
+            actions.append(sock.close)
+        self.timers, self.subscribers = [], []
+        for action in actions:
+            try:
+                action()
+            except Exception as exc:
+                self.rospy.logwarn_throttle(5.0, "UDP resource cleanup failed: %s" % exc)
         self.rospy.loginfo("ROS UDP telemetry stopped")
 
 
-def run():
-    import rospy
-    import rospkg
-
-    rospy.init_node("epgeneral_udp_telemetry")
-    rospack = rospkg.RosPack()
-    device_package_path = rospack.get_path("epgeneral_device_config")
-    telemetry_path = rospy.get_param(
-        "~telemetry_config_file",
-        device_package_path + "/config/udp_telemetry.yaml")
-    device_path = rospy.get_param("~device_config_file", device_package_path + "/config/device.yaml")
-    config = load_config(telemetry_path, device_path)
-    config["destination_host"] = rospy.get_param("~destination_host", config["destination_host"])
-    config["destination_port"] = int(rospy.get_param("~destination_port", config["destination_port"]))
-    namespace = "/epgeneral_udp_telemetry"
-    config["link_status_topic"] = rospy.get_param("~link_status_topic", namespace + "/link/udp_tx")
-    config["diagnostics_topic"] = rospy.get_param("~diagnostics_topic", namespace + "/diagnostics")
-    node = RosUdpTelemetryNode(rospy, config)
-    node.start()
-    rospy.spin()
+def run(argv=None):
+    from .application import run as run_application
+    return run_application(argv)

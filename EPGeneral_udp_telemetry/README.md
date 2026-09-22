@@ -1,81 +1,69 @@
 # epgeneral_udp_telemetry
 
-配套 CCS 0.23.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
+版本：**v0.4.0**。将 ROS 消息与文件状态转换为 CCS MessagePack UDP 遥测。运行配置统一由 `EPGeneral_device_config` 保存、安装和分发，功能包不携带设备 YAML。
 
-版本：v0.3.1。运行配置统一由 `epgeneral_device_config/config/udp_telemetry.yaml` 提供。该 ROS Melodic/Noetic 包将 ROS 话题和受限地图文件状态转换为 CCS MessagePack UDP 遥测。
+[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [接口参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md-6-udp_telemetryyaml) · [重构与迁移说明](../documents/UDP_TELEMETRY_GENERIC.md)
 
-## 依赖与安装
+## 安装
 
-- 当前基线为 Ubuntu 20.04、ROS Noetic、Python 3；Melodic 为历史兼容信息
-- `rospy`、`roslib`、`geometry_msgs`、`nav_msgs`、`sensor_msgs`
-- `python3-yaml`、`python3-msgpack`
-- 同工作空间中的 `epgeneral_device_config`
+当前部署基线为 Ubuntu 20.04、ROS Noetic、Python 3，源码保持 Python 3.6 语法兼容。依赖 rospy、roslib、diagnostic_msgs、std_msgs、python3-yaml、python3-msgpack，以及配置中声明的 ROS 消息包。预检会拒绝未安装的消息类型或不存在的字段。
 
 ```bash
-sudo apt update
-sudo apt install python3-yaml python3-msgpack ros-noetic-geometry-msgs \
-  ros-noetic-nav-msgs ros-noetic-sensor-msgs
 cd ~/catkin_ws
 rosdep install --from-paths src --ignore-src -r -y
-catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
-source devel/setup.bash
-```
-
-更新包后建议强制刷新 CMake 缓存并验证导入：
-
-```bash
-cd ~/c3po_ctrl_ws
-source /opt/ros/noetic/setup.bash
 catkin_make --force-cmake -DPYTHON_EXECUTABLE=/usr/bin/python3
 source devel/setup.bash
-python3 -c "import epgeneral_udp_telemetry; print(epgeneral_udp_telemetry.__version__)"
+python3 -c 'import epgeneral_udp_telemetry; print(epgeneral_udp_telemetry.__version__)'
 ```
 
-预期版本为 `0.3.1`。如果导入仍失败，检查当前终端的 `echo $ROS_PACKAGE_PATH` 和 `python3 -c 'import sys; print(sys.path)'` 是否包含该工作空间的 devel 路径。源码入口也提供同包 `src` 回退，但标准部署仍应完成 build 和 source。
+预期版本 `0.4.0`，配套 `epgeneral_device_config` 版本 `0.2.0`。
 
-## 配置
+## 配置与启动
 
-设备 ID/IP 来自 `epgeneral_device_config/config/device.yaml`。`epgeneral_device_config/config/udp_telemetry.yaml` 设置地面站 IP、UDP 14560 端口以及每个数据项的名称、类型、等级和 ROS 来源。
+`device.yaml` 提供设备 ID/IP；`udp_telemetry.yaml` 提供目标 IP/端口、数据描述符、ROS 类型与字段、单位、新鲜度和文件路径。新建部署可从 [udp_generic 模板](../EPGeneral_device_config/config/templates/udp_generic) 开始，先修改样例身份、目标 IP 和输入话题，并在地面站登记对应描述符集合。模板不会自动启用。
 
-- Level 1：20 Hz，`pose` 或 `imu`。
-- Level 2：5 Hz，`pointcloud_status`，只发送接收状态、数据年龄和估算频率。
-- Level 3：1 Hz，`availability` 按话题新鲜度判断可用性，`text_status` 读取并复用最近文本值。
-- Pose 的 `source.mapping.position/orientation` 和 IMU 的三个 mapping 使用点分属性路径，可适配 PoseStamped、Odometry 或其他同结构消息。
-- `name/display_name/type/level` 必须与地面站 `config/udp_telemetry.json` 完全一致，否则描述哈希校验会拒绝数据。
-- `source.kind: pgm_file` 读取活动地图状态文件，只检查配置地图根目录下非符号链接的 `map.pgm`，不订阅 ROS 话题。
-
-默认全局位姿为 `/mavros/local_position/pose` 的本地 ENU 米制坐标；姿态输出为 roll/pitch/yaw 角度。默认三级话题包括 Livox、FAST-LIO2、PGM、OctoMap、OccupancyGrid 和 `/mapping_mode`，均应按实际部署修改。
-
-## 启动与验证
+与 MQTT 一致，必须显式选择一个配置目录，或者完整的配置文件对。配置文件不热加载，修改后需重启。
 
 ```bash
-roslaunch epgeneral_udp_telemetry epgeneral_udp_telemetry.launch destination_host:=192.168.151.100
+CFG="$(rospack find epgeneral_device_config)/config"
+# 先在共享入口安装本设备的 device.yaml 和 udp_telemetry.yaml，再执行检查。
+rosrun epgeneral_udp_telemetry epgeneral_udp_telemetry_node.py --config-dir "$CFG" --check-config
+rosrun epgeneral_udp_telemetry epgeneral_udp_telemetry_node.py --config-dir "$CFG" --check-ros
+roslaunch epgeneral_udp_telemetry epgeneral_udp_telemetry.launch config_dir:="$CFG"
 ```
 
-可覆盖参数：
+`--check-config` 校验并输出展开后的有效配置，不需要 ROS、不连接网络；已构建环境可用 rosrun，源码环境直接用 `python3 EPGeneral_udp_telemetry/scripts/epgeneral_udp_telemetry_node.py`。`--check-ros` 额外加载 ROS 消息类、检查字段，不创建节点、订阅或 UDP socket。正常启动也会先执行类型/字段预检，全部通过后才建立运行资源。
 
-- `telemetry_config_file`
-- `device_config_file`
-- `destination_host`
-- `destination_port`
+兼容入口：`telemetry_config_file:=... device_config_file:=...`，不能与 `config_dir` 混用。`destination_host`、`destination_port`、`link_status_topic`、`diagnostics_topic` 均为空默认值，**只有显式非空传值才覆盖 YAML**。旧的单独私有 ROS 参数注入应迁移为上述 launch 参数或命令行参数。未选择配置时启动失败，退出码 2；运行异常退出码 1。
 
-验证话题和网络：
+## 通用来源模式
+
+| source.mode | 可用数据类型 | 行为 |
+| --- | --- | --- |
+| ros_fields | pose、imu、text_status | 动态加载消息类，提取点分字段或向量分量映射，转换声明的单位 |
+| topic_freshness | availability、pointcloud_status | AnyMsg 仅检查消息到达时间，不读取消息中的 true/false |
+| value_status | availability | 读取 Bool 或枚举字段，按 values 映射 available/unavailable/unknown |
+| file_status | availability | 从状态 JSON 提取地图 ID，在限定根目录检测配置的相对文件路径 |
+| disabled | 全部既有类型 | 不订阅或读文件，保留描述符并输出 valid=false |
+
+位姿位置输入支持 m/cm/mm，IMU 角速度支持 rad/s、deg/s，加速度支持 m/s2、g；线协议统一输出米、rad/s、m/s2，姿态输出欧拉角度。四元数字段固定 x/y/z/w。`expected_frame` 可拒绝不同 frame，不执行 TF、轴交换或 ENU/NED 坐标变换；需要变换时在上游适配。
+
+`aggregation` 为 mean 或 latest；mean 对每个发送窗口求均值并对齐、归一化平均四元数。`max_samples` 限制缓存，溢出淘汰最旧样本并记录 dropped_count。NaN/Inf、非数值及无效四元数被隔离。`stale_policy: invalidate` 在超过 `max_age_seconds` 后标记无效；`hold` 明确允许保留最近值，适用于已确认的 latched 状态。新模板使用 invalidate，迁移的历史 profile 保留显式 hold。text_status 的 hold 会保留文本，但到达 timeout_seconds 后 status 为 unavailable。
+
+## 协议与诊断
+
+配置 schema 升为 2，仍兼容 schema 1；**线协议保持 schema 1、ccs-udp-telemetry-v1**。Level 1 的 pose/imu 为 20 Hz，Level 2 的点云状态为 5 Hz，Level 3 的 availability/text_status 为 1 Hz；心跳和诊断为 1 Hz。点云只发送元数据，文本最多 128 字符。
+
+`name/display_name/type/level` 共同决定 descriptor_hash，必须与地面站接受的集合一致。改来源、路径、单位、设备身份或禁用来源不会改 hash；增删或重命名描述符须同步地面站。`global_pose`、`vision_pose` 等既有名称还承担地面站业务含义，不能视为随意可改的字段。
+
+诊断话题由 `runtime.diagnostics_topic` 配置，链路 Bool 由 `runtime.link_status_topic` 配置；支持 `{device_id}` 展开且保留大小写。逐来源诊断包含接收/有效/拒绝/丢弃计数、样本年龄、过期状态及拒绝原因。文件来源不依赖示例 topic。链路 Bool 表示本机 sendto 结果，端到端接收仍需地面站确认。
 
 ```bash
-rostopic hz /mavros/local_position/pose
-rostopic hz /mavros/imu/data
+# 按有效配置替换诊断话题
 rostopic echo /epgeneral_udp_telemetry/diagnostics
 sudo tcpdump -ni any udp port 14560
 ```
 
-高频输入在每个发送窗口求均值；四元数先统一符号再归一化平均。`NaN/Inf`、非数值字段和无效四元数不会进入窗口，单项异常只产生该项 `valid=false`。低频输入会重复最近值并附带 `sample_age_seconds`。若地面站只有心跳而没有某项数据，检查 diagnostics 中对应 source 的 `accepted_count/rejected_count/last_rejection_reason`，再核对 topic、message type 和 mapping；若显示描述哈希不一致，同步两端描述配置。UDP 仅用于可信内网，不提供认证、加密、重传或拥塞控制。
-
-节点在 `~link_status_topic` 发布 latched `std_msgs/Bool`。`~diagnostics_topic` 保留 `epgeneral_udp_telemetry/udp_tx`，并增加 `epgeneral_udp_telemetry/source/<name>`：前者报告目标、session、descriptor hash 和各等级发送统计，后者报告 ROS 来源、接收/有效/拒绝计数、最近样本年龄及拒绝原因。本机 `sendto` 成功不证明地面站已经收到数据；端到端状态仍由地面站 heartbeat 超时判断。
-
 ## 测试
 
-```bash
-PYTHONPATH=src python3 -m unittest discover -s test -v
-```
-
-纯 Python 测试覆盖配置、描述哈希、非法样本隔离、四元数平均、窗口均值、低频复用和点云元数据。动态 ROS 类型加载及实际 20/5/1 Hz 调度需在 ROS Melodic/Noetic 环境运行 launch 验证。
+在本包目录执行 `PYTHONPATH=src python3 -m unittest discover -s test -v`。测试覆盖配置迁移哈希、显式选择、无副作用预检、Bool/枚举语义、字段/单位/frame、过期、窗口上限、文件约束与失败清理。真实 ROS 调度及设备联调仍需在部署环境验收。
