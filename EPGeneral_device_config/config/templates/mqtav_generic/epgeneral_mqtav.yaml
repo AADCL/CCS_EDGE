@@ -1,0 +1,27 @@
+# Example only: set the broker and actual ROS sources before deployment.
+mqtt:
+  ground_station_ip: 192.0.2.10
+  port: 1883
+  client_id_prefix: mqtav-
+  qos: 1
+  keepalive_seconds: 10
+  heartbeat_hz: 1
+  telemetry_hz: 1
+  topics:
+    presence: mqtav/{device_id}/presence
+    heartbeat: mqtav/{device_id}/heartbeat
+    status: mqtav/{device_id}/status
+ros:
+  node_name: epgeneral_mqtav
+  state:
+    enabled: false
+  battery:
+    enabled: false
+  mission:
+    enabled: false
+  connection_mode: heartbeat
+  connection:
+    topic: /devices/{device_id}/heartbeat
+    message_type: std_msgs/Empty
+    timeout_seconds: 3.0
+schema_version: 2

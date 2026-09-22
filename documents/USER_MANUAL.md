@@ -388,9 +388,11 @@ systemctl --user is-enabled ccs-edge-dev.service
 <a id="documents-user-manual-md-52-epgeneral_mqtav"></a>
 ### 5.2 epgeneral_mqtav
 
+0.5.0 要求显式配置目录，启动前可用 `rosrun epgeneral_mqtav epgeneral_mqtav_node.py --config-dir "$CFG" --check-config` 检查。新配置版本 2 的模式、字段换算和迁移方法见 [MQTT 包说明](../epgeneral_mqtav/README.md)。
+
 ~~~bash
 roslaunch epgeneral_mqtav epgeneral_mqtav.launch \
-  device_config_file:="$CFG/device.yaml" config_file:="$CFG/epgeneral_mqtav.yaml"
+  config_dir:="$CFG"
 ~~~
 
 先用 rostopic type/echo 检查配置的状态和电池源，再在地面站确认 presence、heartbeat、status。正常退出发布 offline；异常断线由 MQTT Last Will/心跳超时体现。在线不代表 UDP/视频/任务可用。没有电池源时保持 unknown，诊断网络时检查 Broker TCP 1883 与节点耐久日志。
@@ -702,7 +704,7 @@ ARM 控制并行度。核对所有 CCS 包 rospack find/readlink -f 都在本工
 | 文件 | 必须核对 |
 | --- | --- |
 | device.yaml | 唯一 ID、端侧 IP；平台同 ID 新记录，初始地图绑定为空 |
-| epgeneral_mqtav.yaml | Broker、状态/连接/电池/任务来源；QRD_003 周期 low_state 判断连接，锁存 Bool.data 表示 armed |
+| epgeneral_mqtav.yaml | Broker、状态/连接/电池/任务来源；QRD_002/QRD_003 周期 low_state 判断连接，锁存 Bool.data 表示 armed |
 | udp_telemetry.yaml | 正式 name/display_name/type/level 与平台严格哈希一致；source 真实类型/字段；pgm_file 是文件接口 |
 | video.yaml | 驱动实际 topic/type、分辨率/帧率、SRT 端口/码率；enabled 元数据不控制节点启停 |
 | map_stream.yaml | 原始输入与预览区分；backend、标定、frame/coordinates、保存服务、PCD→PGM 路径、磁盘 |

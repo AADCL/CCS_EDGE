@@ -1,25 +1,26 @@
-"""Python 3.6 compatible, thread-safe MAVROS health snapshots."""
+"""Python 3.6 compatible, thread-safe generic health snapshots."""
 
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import Lock
 import uuid
 
+from .fields import boolean, number
+
 
 def utc_timestamp():
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def normalize_percentage(value):
-    """Convert BatteryState's 0..1 value to percentage points."""
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
+def normalize_percentage(value, unit="legacy_auto"):
+    """Normalize explicitly configured units; legacy_auto preserves old profiles."""
+    numeric = number(value)
+    if numeric is None or numeric < 0:
         return None
-    if numeric < 0:
-        return None
-    if numeric <= 1:
+    if unit == "fraction" or (unit == "legacy_auto" and numeric <= 1):
         numeric *= 100
+    if unit != "legacy_auto" and numeric > 100:
+        return None
     return round(min(numeric, 100.0), 2)
 
 
@@ -39,13 +40,15 @@ class HealthState(object):
         }
 
     def update_state(self, connected, armed, system_status, mode, preserve_connected=False):
-        def optional_bool(value):
-            return None if value is None else bool(value)
+        optional_bool = boolean
+        status = number(system_status)
+        if status is not None and status.is_integer():
+            status = int(status)
 
         with self._lock:
             self._health.update(
                 armed=optional_bool(armed),
-                system_status=system_status if system_status is not None else None,
+                system_status=status,
                 flight_mode=str(mode) if mode else "unknown",
             )
             if not preserve_connected:
@@ -53,20 +56,18 @@ class HealthState(object):
 
     def update_connected(self, connected):
         with self._lock:
-            self._health["fcu_connected"] = None if connected is None else bool(connected)
+            self._health["fcu_connected"] = boolean(connected)
 
-    def update_battery(self, percentage, voltage, current):
-        def number(value):
-            try:
-                return round(float(value), 3)
-            except (TypeError, ValueError):
-                return None
+    def update_battery(self, percentage, voltage, current, percentage_unit="legacy_auto"):
+        def rounded(value):
+            value = number(value)
+            return round(value, 3) if value is not None else None
 
         with self._lock:
             self._health["battery"] = {
-                "percentage": normalize_percentage(percentage),
-                "voltage": number(voltage),
-                "current": number(current),
+                "percentage": normalize_percentage(percentage, percentage_unit),
+                "voltage": rounded(voltage),
+                "current": rounded(current),
             }
 
     def update_mission(self, status):

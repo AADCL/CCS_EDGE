@@ -1,3 +1,4 @@
+schema_version: 2
 mqtt:
   ground_station_ip: "192.168.50.101"
   port: 1883
@@ -12,6 +13,7 @@ mqtt:
     status: "mqtav/{device_id}/status"
 
 ros:
+  connection_mode: field
   node_name: "epgeneral_mqtav"
   state:
     topic: "/mavros/state"
@@ -20,6 +22,7 @@ ros:
     timeout_seconds: 3.0
     mapping: {connected: "connected", armed: "armed", system_status: "system_status", mode: "mode"}
   battery:
+    percentage_unit: fraction
     topic: "/mavros/battery"
     message_type: "sensor_msgs/BatteryState"
     mapping: {percentage: "percentage", voltage: "voltage", current: "current"}

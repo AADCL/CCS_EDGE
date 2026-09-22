@@ -1,8 +1,18 @@
 # epgeneral_mqtav 开发日志
 
-<!-- epgeneral_mqtav_VERSION: 0.4.1 -->
+<!-- epgeneral_mqtav_VERSION: 0.5.0 -->
 
-当前版本：`v0.4.1`
+当前版本：`v0.5.0`
+
+## v0.5.0 - 2026-09-22
+
+- 增加配置版本 2：四种显式连接模式、可禁用状态源、严格身份与话题校验、单位和字段转换。
+- 统一 --config-dir、离线 --check-config 和 ROS 消息 --check-ros；取消无参数启动时选择示例身份，兼容显式旧文件对。
+- 修复 NaN/Inf、字符串布尔值和状态新鲜度计时竞争；补齐启动失败与退出清理。
+- 八套设备 MQTT profile 升级（含 UAV_001）；QRD_002 使用周期 low_state 判断连接；任务订阅话题从 device.id 展开。
+- UAV bringup 显式传入已安装配置目录，兼容新的启动入口。
+- MQTT 线协议保持 1.0，旧配置兼容；配置模板仍集中在 EPGeneral_device_config。
+
 
 ## v0.4.1 - 2026-09-02
 

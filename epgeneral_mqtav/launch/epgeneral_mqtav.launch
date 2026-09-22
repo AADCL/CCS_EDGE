@@ -1,8 +1,10 @@
 <launch>
-  <arg name="config_file" default="$(find epgeneral_device_config)/config/epgeneral_mqtav.yaml" />
-  <arg name="device_config_file" default="$(find epgeneral_device_config)/config/device.yaml" />
-  <arg name="log_dir" default="$(env HOME)/.ros/log/epgeneral_mqtav" />
+  <!-- Select a profile explicitly. Old paired file arguments remain supported. -->
+  <arg name="config_dir" default="" />
+  <arg name="config_file" default="" />
+  <arg name="device_config_file" default="" />
+  <arg name="log_dir" default="" />
 
-  <node pkg="epgeneral_mqtav" type="epgeneral_mqtav_node.py" name="epgeneral_mqtav" output="screen"
-        args="--config-file $(arg config_file) --device-config-file $(arg device_config_file) --log-dir $(arg log_dir)" />
+  <node pkg="epgeneral_mqtav" type="epgeneral_mqtav_node.py" name="epgeneral_mqtav" output="screen" required="true"
+        args="--config-dir &quot;$(arg config_dir)&quot; --config-file &quot;$(arg config_file)&quot; --device-config-file &quot;$(arg device_config_file)&quot; --log-dir &quot;$(arg log_dir)&quot;" />
 </launch>

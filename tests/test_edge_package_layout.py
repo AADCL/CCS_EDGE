@@ -73,8 +73,6 @@ class EdgePackageLayoutTests(unittest.TestCase):
         cases = {
             "EPGeneral_map_stream/launch/epgeneral_map_stream.launch":
                 "config/map_stream.yaml",
-            "epgeneral_mqtav/launch/epgeneral_mqtav.launch":
-                "config/epgeneral_mqtav.yaml",
             "EPGeneral_relocalization/launch/epgeneral_relocalization.launch":
                 "config/relocalization.yaml",
             "EPGeneral_task_control/launch/epgeneral_task_control.launch":
@@ -90,6 +88,13 @@ class EdgePackageLayoutTests(unittest.TestCase):
                 "$(find epgeneral_device_config)/" + config_path,
                 text,
             )
+
+    def test_mqtav_requires_explicit_profile_selection(self):
+        launch = ElementTree.parse(EDGE_ROOT / "epgeneral_mqtav/launch/epgeneral_mqtav.launch").getroot()
+        arguments = {arg.attrib["name"]: arg.attrib.get("default") for arg in launch.findall("arg")}
+        self.assertEqual(arguments["config_dir"], "")
+        self.assertEqual(arguments["config_file"], "")
+        self.assertEqual(arguments["device_config_file"], "")
 
     def test_obsolete_packages_are_absent(self):
         self.assertFalse((EDGE_ROOT / "EPQRD_go2_bridge").exists())

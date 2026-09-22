@@ -209,10 +209,16 @@ UAV 补充字段：
 
 ## 5. epgeneral_mqtav.yaml
 
-本文件没有配置 schema 字段。以下频率为 Hz，时间为秒。状态/电池 mapping 值是消息字段路径，不是常量；null 表示不提供该项。
+0.5.0 新增配置版本 2：`ros.connection_mode` 为 field/freshness/heartbeat/disabled；启用电池时必须指定 `percentage_unit`。以下旧配置说明仍兼容；新增字段、换算及完整迁移方法见 [MQTT 包说明](../epgeneral_mqtav/README.md)。
+
+省略 schema_version 时按旧版本 1 加载；新 profile 使用版本 2。以下频率为 Hz，时间为秒。状态/电池 mapping 支持字段路径、换算对象或 null；null 表示不提供该项。
 
 | 键 | 类型 / 默认或要求 | 定义与约束 |
 | --- | --- | --- |
+| `schema_version` | int；新配置为 2 | 旧配置省略时按 1 加载 |
+| `ros.connection_mode` | field/freshness/heartbeat/disabled；版本 2 必填 | 分别为字段、状态新鲜度、独立周期源、禁用 |
+| `ros.state.enabled` | bool；默认 true | false 时不订阅状态 |
+| `ros.battery.percentage_unit` | fraction/percent/legacy_auto | 版本 2 启用电池时必填；换算后的百分比单位 |
 | `mqtt.ground_station_ip` | string；必填 | Broker 的 IPv4/IPv6 地址，不能填 DNS 名 |
 | `mqtt.port` | int；必填，示例 1883 | 1..65535，Broker TCP 端口 |
 | `mqtt.client_id_prefix` | string；必填，示例 mqtav- | 非空，与 device.id 组成客户端 ID |
@@ -229,8 +235,8 @@ UAV 补充字段：
 | `ros.connection.timeout_seconds` | number；默认 3.0 | 0.1..3600 秒；独立连接输入的新鲜度阈值，省略 connection 时沿用 ros.state 的连接判断 |
 | `ros.state.topic` | string；必填 | 以 / 开头的状态输入话题 |
 | `ros.state.message_type` | string；必填 | package/Message，必须在已 source 工作空间中可加载 |
-| `ros.state.connected_on_message` | bool；默认 false | true 时以消息新鲜度判断 connected |
-| `ros.state.timeout_seconds` | number；默认 3.0 | connected_on_message=true 时生效，0.1..3600 秒 |
+| `ros.state.connected_on_message` | bool；旧配置默认 false | 旧配置 true 时以消息新鲜度判断 connected；版本 2 以 connection_mode 为准 |
+| `ros.state.timeout_seconds` | number；默认 3.0 | freshness 或旧配置 connected_on_message=true 时生效，0.1..3600 秒 |
 | `ros.state.mapping.connected` | string/null；默认 connected | connected 字段路径；新鲜度模式可置 null |
 | `ros.state.mapping.armed` | string/null；默认 armed | 解锁状态来源 |
 | `ros.state.mapping.system_status` | string/null；默认 system_status | 系统状态来源 |
@@ -641,8 +647,8 @@ UAV 补充字段：
 | launch / 参数 | 默认或要求 | 作用 |
 | --- | --- | --- |
 | 所有业务主 launch：device_config_file | 共享目录/device.yaml | 唯一身份配置 |
-| epgeneral_mqtav.launch：config_file | 共享目录/epgeneral_mqtav.yaml | MQTT 配置 |
-| epgeneral_mqtav.launch：log_dir | HOME/.ros/log/epgeneral_mqtav | 耐久日志目录 |
+| epgeneral_mqtav.launch：config_dir | 空，须显式填写 | 同时加载 device.yaml 和 epgeneral_mqtav.yaml；兼容显式 config_file/device_config_file 文件对 |
+| epgeneral_mqtav.launch：log_dir | HOME/.ros/log/epgeneral_mqtav/设备ID | 耐久日志目录，可覆盖 |
 | epgeneral_udp_telemetry.launch：telemetry_config_file | 共享目录/udp_telemetry.yaml | 遥测配置 |
 | epgeneral_udp_telemetry.launch：destination_host | 192.168.151.100 | 总会覆盖 YAML 的同项；现场必须显式传值 |
 | epgeneral_udp_telemetry.launch：destination_port | 14560 | 同上，端口覆盖 |
@@ -1301,9 +1307,10 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 
 | 文件与完整键 | 当前接口名 | ROS 类型 / 接口类别 | 方向、字段与生效条件 |
 | --- | --- | --- | --- |
+| `epgeneral_mqtav.yaml: ros.connection.topic` | `/go2/state/low_state` | go2_control/Go2LowState（message_type） | 接收；周期消息；超时 3.0s |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/go2/control/enabled` | std_msgs/Bool（message_type） | 接收；字段 {"connected": null, "armed": "data", "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/go2/battery_state` | sensor_msgs/BatteryState（message_type） | 接收；字段 {"percentage": "percentage", "voltage": "voltage", "current": "current"} |
-| `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/QRD_002/task_status` | std_msgs/String（message_type） | 接收；字段 {"value": "data"} |
+| `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/{device_id}/task_status` | std_msgs/String（message_type）；展开为 /qrd/QRD_002/task_status | 接收；字段 {"value": "data"} |
 | `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
 | `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
 | `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
@@ -1345,7 +1352,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `epgeneral_mqtav.yaml: ros.connection.topic` | `/go2/state/low_state` | go2_control/Go2LowState（message_type） | 接收；周期消息；超时 3.0s |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/go2/control/enabled` | std_msgs/Bool（message_type） | 接收；字段 {"connected": null, "armed": "data", "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/go2/battery_state` | sensor_msgs/BatteryState（message_type） | 接收；字段 {"percentage": "percentage", "voltage": "voltage", "current": "current"} |
-| `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/QRD_003/task_status` | std_msgs/String（message_type） | 接收；字段 {"value": "data"} |
+| `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/{device_id}/task_status` | std_msgs/String（message_type）；展开为 /qrd/QRD_003/task_status | 接收；字段 {"value": "data"} |
 | `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
 | `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
 | `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
@@ -1577,7 +1584,7 @@ rossrv md5 std_srvs/Trigger
 | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/mavros/state` | mavros_msgs/State |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/mavros/battery` | sensor_msgs/BatteryState |
-| `epgeneral_mqtav.yaml: ros.mission.topic` | `/uav/UAV_001/task_status` | std_msgs/String |
+| `epgeneral_mqtav.yaml: ros.mission.topic` | `/uav/{device_id}/task_status` | std_msgs/String；展开为 /uav/UAV_001/task_status |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/ducted/mapping/cloud_registered` | sensor_msgs/PointCloud2 |

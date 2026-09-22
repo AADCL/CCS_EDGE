@@ -64,6 +64,15 @@ python3 /home/nrc/ccs_edge_ws/deploy/uav_001/scripts/readiness.py
 
 ## 配置与接口
 
+MQTT 0.5.0 配套共享配置包 0.1.4。UAV profile 使用 MQTT 配置 schema_version 2、field 连接模式和 fraction 电池单位；任务订阅由 device.id 展开。uav_001_bringup 显式传入已安装的共享配置目录，因此升级时须同步安装 MQTT 包、配置包与该 launch 文件。设备身份仍采用 schema_version 1。部署前可执行：
+
+~~~bash
+rosrun epgeneral_mqtav epgeneral_mqtav_node.py --config-dir "$(rospack find epgeneral_device_config)/config" --check-config
+rosrun epgeneral_mqtav epgeneral_mqtav_node.py --config-dir "$(rospack find epgeneral_device_config)/config" --check-ros
+~~~
+
+这些检查不启动 ROS 节点或 MQTT 连接。完整迁移与回滚边界见 [MQTT 包说明](../../../epgeneral_mqtav/README.md)。
+
 运行配置位于 /home/nrc/ccs_edge_ws/src/EPGeneral_device_config/config/ 的七份 YAML；deploy/uav_001/config 是交付快照。修改后同步两处并重启，不支持热更新。各配置字段及话题矩阵见[接口参考](../../INTERFACE_REFERENCE.md)。
 
 | 功能 | 原生接口 |

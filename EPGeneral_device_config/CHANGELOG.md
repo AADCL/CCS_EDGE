@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.1.4 (2026-09-22)
+
+- 新增 config/templates/mqtav_generic 配置模板，设备身份文件保持 schema_version 1，MQTT 接入配置使用 schema_version 2。
+- 八套设备 MQTT profile 统一声明连接模式与电池单位；运行配置继续由本包集中安装和分发。
+- 配套 epgeneral_mqtav 0.5.0：须显式指定 config_dir 或完整文件对，不再隐式使用样例身份。
+
 ## 0.1.3 (2026-09-21)
 
 - 为共享及设备 profile 建图配置增加同目录 OT 输出；占据图导出命令保持显式接入，不填写未验证的现场路径。
