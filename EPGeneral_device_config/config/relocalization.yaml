@@ -33,3 +33,8 @@ tf_stability:
   sample_count: 10
   translation_tolerance_m: 0.10
   yaw_tolerance_deg: 2.0
+
+# Optional receiver; missing XML never blocks localization.
+trusted_regions:
+  enabled: true
+  root: ~/.ros/ccs_edge_dev/trusted_regions

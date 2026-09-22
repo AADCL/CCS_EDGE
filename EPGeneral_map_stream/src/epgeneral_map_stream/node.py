@@ -9,6 +9,7 @@ from .artifacts import (
     ArtifactError, ArtifactHttpServer, CommandRunner, SessionPaths,
     build_archive, file_fingerprint, require_fresh_file, wait_for_stable_artifacts,
     write_binary_pcd,
+    collect_occupancy, occupancy_sources,
 )
 from .config import (
     ConfigError, build_integration_commands, ground_air_map_directory,
@@ -58,6 +59,7 @@ class RosTfTransformLookup(object):
 class MappingSession(object):
     def __init__(self, command, destination, paths, pose_buffer_size, clock):
         self.identity = {"map_id": command["map_id"], "session_id": command["session_id"]}
+        self.identity["artifact_formats"] = command["payload"].get("artifact_formats", ["pcd", "pgm", "yaml"])
         for name in ("job_id", "role", "primary_device_id"):
             if name in command["payload"]:
                 self.identity[name] = command["payload"][name]
@@ -515,6 +517,14 @@ class RosMapStreamNode(object):
             elif self.config["integration_backend"] in ("ground_air_service", "ducted_uav"):
                 source_pcd = session.paths.pcd_path
             session.accumulator_pcd_baseline = file_fingerprint(source_pcd)
+            session.occupancy_baseline = {
+                role: file_fingerprint(path)
+                for role, path in occupancy_sources(self.config, session.paths).items()
+            }
+            session.occupancy_baseline.update({
+                "target_" + role: file_fingerprint(getattr(session.paths, role + "_path"))
+                for role in ("pgm", "yaml", "ot")
+            })
             session.mapping_started_at_ns = time.time_ns()
         self._log_info(
             "mapping source baseline session=%s fingerprint=%s",
@@ -692,12 +702,14 @@ class RosMapStreamNode(object):
             self._send_session_message(session, "artifact_status", {
                 "state": "generating", "message": "generating PGM and map YAML",
                 "reason": ""})
-            self._run_command(
-                "generate_pgm", commands["generate_pgm"],
-                timeout=self.config["pgm_generation_timeout_seconds"] + 6.0)
+            if "generate_pgm" in commands:
+                self._run_command(
+                    "generate_pgm", commands["generate_pgm"],
+                    timeout=self.config["pgm_generation_timeout_seconds"] + 6.0)
             self._send_session_message(session, "artifact_status", {
                 "state": "generating", "message": "validating mapping artifacts",
                 "reason": ""})
+            self._collect_occupancy(session, commands)
             wait_for_stable_artifacts(session.paths, self.config)
             descriptor = build_archive(session.paths, self.config, session.identity)
             self._publish_artifact_ready(session, descriptor)
@@ -744,6 +756,7 @@ class RosMapStreamNode(object):
                 "stop_ground_air_mapping", commands["stop_fast_lio"],
                 timeout=self.config["fast_lio_stop_timeout_seconds"] + 6.0)
             mapping_stack_stopped = True
+            self._collect_occupancy(session, commands)
             wait_for_stable_artifacts(session.paths, self.config)
             descriptor = build_archive(session.paths, self.config, session.identity)
             self._publish_artifact_ready(session, descriptor)
@@ -815,6 +828,7 @@ class RosMapStreamNode(object):
             self._run_command(
                 "finalize_scout_map", commands["generate_pgm"],
                 timeout=self.config["pgm_generation_timeout_seconds"] + 6.0)
+            self._collect_occupancy(session, commands)
             wait_for_stable_artifacts(session.paths, self.config)
             descriptor = build_archive(session.paths, self.config, session.identity)
             self._publish_artifact_ready(session, descriptor)
@@ -833,6 +847,14 @@ class RosMapStreamNode(object):
                 if self.session is session:
                     self.session = None
                     self.state = "standby"
+
+    def _collect_occupancy(self, session, commands):
+        if commands.get("occupancy_export"):
+            self._run_command("occupancy_export", commands["occupancy_export"],
+                              timeout=self.config["pgm_generation_timeout_seconds"] + 6.0)
+        collect_occupancy(session.paths, self.config,
+                          getattr(session, "occupancy_baseline", {}),
+                          session.mapping_started_at_ns)
 
     def _publish_artifact_ready(self, session, descriptor):
         token, expires_at = self.artifact_server.register(

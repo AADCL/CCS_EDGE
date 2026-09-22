@@ -8,7 +8,7 @@ import msgpack
 MESSAGE_TYPES = set((
     "negotiate", "negotiation_status", "map_offer", "download_status",
     "start_stack", "stack_status", "initial_pose", "relocalization_result",
-    "session_heartbeat", "command_error",
+    "session_heartbeat", "command_error", "trusted_regions_offer", "trusted_regions_status",
 ))
 
 

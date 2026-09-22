@@ -116,5 +116,7 @@ artifacts:
   source_yaml_path: "/home/nvidia/go2_mid360_nav/maps/corridor_01/map.yaml"
   archive_root: "/home/nvidia/go2_mid360_nav/maps/corridor_01/archive"
   pcd_path: "{session_dir}/map.pcd"
+  # Optional occupancy output; keep beside the original PCD. Native exporter paths are configured separately.
+  ot_path: "{session_dir}/map.ot"
   pgm_path: "{session_dir}/map.pgm"
   yaml_path: "{session_dir}/map.yaml"

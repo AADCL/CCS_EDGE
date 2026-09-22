@@ -1,5 +1,9 @@
 # 端侧接口与配置参考
 
+## 0.14.0 占据图接口
+
+prepare 新增可选 artifact_formats，成果 manifest 支持 ot 角色及 SHA-256。保持旧平台 PGM 三件套契约，拒绝未协商的 OT-only 成果。命令、源文件/会话路径、新鲜度及各机型约束见 [OT 成果接口](OCTOMAP.md)。
+
 整理日期：2026-09-18；源码基线：CCS_dev dbe85904cdbae3d3b837f8816f29d1f030d7bd5a，配套 CCS 0.25.0。
 
 以本仓库 README 和各机型部署指南为当前目录入口。配置无热重载，包内默认配置与设备运行目录配置必须区分。
@@ -309,6 +313,17 @@ UAV 补充字段：
 
 ## 8. map_stream.yaml
 
+0.14.0 新增可选 OT 配置，默认不启用任何未知的设备命令：
+
+| 参数 | 默认 / 约束 |
+|---|---|
+| `artifacts.ot_path` | `{session_dir}/map.ot`，必须与 PCD 同目录且位于当前会话内 |
+| `artifacts.source_ot_path` | 可选，经核实的原生功能包源路径，支持会话模板变量 |
+| `integrations.occupancy.command` | 可选，导出程序 argv 数组，支持 `{pcd_path}`、`{ot_path}` 等路径占位符 |
+| `integrations.occupancy.check_command` | 配置导出命令时必填，预检查 argv 数组 |
+
+成果组合、旧平台协商、新鲜度和机型约束见 [OT 接入说明](OCTOMAP.md)。
+
 配置 schema=6，协议为 ccs-map-stream-v2。除明确写“默认/可选”的项外，下表均必须提供；数值示例来自公共模板，设备 profile 可能不同。backend 不会消除基础 integrations 配置结构，保留 profile 中的兼容占位字段，勿自行删除。
 
 <a id="documents-interface-reference-md-81-通信输入与处理"></a>
@@ -477,6 +492,8 @@ network/storage/ros/tf_stability 结构必填。stages 仅接受程序可调用�
 | `network.ground_station_ip` | string；必填 | 地面站控制来源与状态目标 |
 | `network.status_port` | int；必填，示例 14566 | 1..65535 |
 | `network.max_datagram_bytes` | int；必填，示例 1400 | 512..65507 |
+| `trusted_regions.enabled` | bool；可选，默认 true | 接收可信区域开关，关闭不影响定位 |
+| `trusted_regions.root` | string；可选，默认 ~/.ros/ccs_edge_dev/trusted_regions | 区域 XML 保存根目录 |
 | `storage.map_root` | string；必填 | 下载地图可写根目录，需与任务及遥测一致 |
 | `storage.pcd_filename` | string；默认 public_map.pcd | 仅 public_map.pcd/cloud_map.pcd |
 | `storage.active_map_state_file` | string；默认 ~/.ros/ccs_edge_dev/state/relocalization.json | 活动地图状态；Ground-Air 指向 CCS run 目录 |
@@ -1584,3 +1601,52 @@ rossrv md5 std_srvs/Trigger
 | `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/uav/UAV_001/stage_status` | std_msgs/String |
 
 RTSP launch 增加 `decoder_preload` 参数，仅 UAV ARM64 设置 libgomp 预加载路径。/ctrl_cmd/state 是整数 ROS 参数。完整边界见 [UAV 指南](devices/uav/DEPLOYMENT_GUIDE.md)。
+
+## 可选可信区域（重定位包 0.5.0）
+
+[可信区域](INTERFACE_REFERENCE.md#可选可信区域接收) 说明接收开关、文件路径、XML 格式及协议。缺少区域文件不会改变原重定位流程。
+
+## 可选可信区域接收
+
+配套 CCS 0.26.0，`epgeneral_relocalization` 0.5.0，`epgeneral_device_config` 0.1.2。
+
+### 配置与文件
+
+在实际启动使用的 relocalization.yaml 中可增加：
+
+```yaml
+trusted_regions:
+  enabled: true
+  root: ~/.ros/ccs_edge_dev/trusted_regions
+```
+
+旧配置缺少此节时使用以上默认值；可设置 `enabled: false` 关闭接收。共享模板位于 `EPGeneral_device_config/config/relocalization.yaml`，使用设备 profile 的一键启动脚本时请修改对应 profile，重启重定位节点生效。
+
+已接收文件为 `<root>/<map_id>/<device_id>.xml`，默认与地图 ZIP 安装目录分离。整组下发成功后原子替换旧文件；下载、校验或写盘失败保留旧文件，返回错误。空区域集合表示清空该设备该地图的区域。地面站删除区域不会立即修改此文件，须重新保存并下发。
+
+可信区域文件不是重定位的必要输入；缺省、损坏或接收关闭不影响原有启动、初始位姿、TF 判定和状态上报。文件仅存储，不用于改变本版本定位或导航算法。
+
+### 接口
+
+继续使用 `ccs-relocalization-v1`。协商响应 `negotiation_status` 增加 `trusted_regions_v1` 布尔能力标识，旧地面站可忽略。
+
+`trusted_regions_offer` 使用现有信封的 map_id、device_id、session_id、request_id，payload 为 `url`、`expires_at`、`byte_count`、`sha256`、`revision`。仅接收已配置地面站 IP、当前设备、当前地图和已成功定位会话的请求。
+
+节点从现有地面站 HTTP 服务下载 XML，禁止重定向，检查下载大小、SHA-256、XML 身份、坐标系和 revision。异步工作线程在提交前再次检查会话和操作代际，拒绝迟到覆盖。`trusted_regions_status` 返回 `request_id`、`revision`、`sha256`、`state`、`reason`；state 为 `downloading`、`ready` 或 `error`，只有原子保存完成后返回 `ready`。区域失败不改变定位状态。重复请求复用结果。
+
+### XML v1
+
+```xml
+<?xml version='1.0' encoding='utf-8'?>
+<trusted_regions schema_version="1" map_id="map-1" device_id="UGV_001" frame_id="map" revision="revision-id">
+  <region id="1">
+    <point index="1" x="0.0" y="0.0" />
+    <point index="2" x="4.0" y="0.0" />
+    <point index="3" x="2.0" y="3.0" />
+  </region>
+</trusted_regions>
+```
+
+坐标单位为米，属于配置的 map_frame。每区至少三个不同且不共线的有序顶点，首尾隐式闭合，支持凹多边形，拒绝自交、重复点和重叠边。编号为唯一正整数；空集合有效。最大 1 MiB、128 区域、每区 512 顶点。拒绝非 UTF-8、DTD/实体声明、错误字段、非有限坐标、路径逃逸和身份不匹配。
+
+测试：`python3 -m unittest discover -s EPGeneral_relocalization/test -v`。旧 profile、无区域配置、关闭接收和接收失败均应保持重定位可用。

@@ -1,5 +1,9 @@
 # 端侧使用手册
 
+## map_stream 0.14.0 八叉树成果
+
+可接入设备已有功能包输出标准 .ot，与原始 PCD 保存在同一会话地图目录。PGM/YAML 与 OT 至少提供一类；OT 单独提供时无需 YAML。导出命令及实际源文件名由配置指定，接入说明见 [OT 配置与兼容性](OCTOMAP.md)。
+
 整理日期：2026-09-18；源码基线：CCS_dev dbe85904cdbae3d3b837f8816f29d1f030d7bd5a，配套 CCS 0.25.0。
 
 以本仓库 README 和各机型部署指南为当前目录入口。配置无热重载，包内默认配置与设备运行目录配置必须区分。
@@ -834,3 +838,7 @@ GO2_3 正常启动在 `/home/unitree/.ros/ccs_edge_ws/<UTC启动时间_纳秒_PI
 ## UAV_001
 
 UAV 新部署采用独立八包工作空间，静态模式与飞行模式显式区分。详见 [UAV 部署说明](devices/uav/DEPLOYMENT_GUIDE.md) 和 [静态验收报告](devices/uav/DEPLOYMENT_REPORT.md)。本轮未进行实飞。
+
+## 可选可信区域（重定位包 0.5.0）
+
+[可信区域](INTERFACE_REFERENCE.md#可选可信区域接收) 说明接收开关、文件路径、XML 格式及协议。缺少区域文件不会改变原重定位流程。

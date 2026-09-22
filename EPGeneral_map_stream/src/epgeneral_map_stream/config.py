@@ -14,7 +14,7 @@ class ConfigError(ValueError):
 
 TEMPLATE_FIELDS = {
     "map_id", "device_id", "session_id", "session_dir",
-    "pcd_path", "pgm_path", "yaml_path", "map_name",
+    "pcd_path", "pgm_path", "yaml_path", "ot_path", "map_name",
 }
 
 
@@ -170,7 +170,20 @@ def load_config(mapping_path, device_path):
     fast_lio = _mapping(integrations, "fast_lio", "integrations.fast_lio")
     map_accumulator = _mapping(
         integrations, "map_accumulator", "integrations.map_accumulator")
-    pgm = _mapping(integrations, "pgm", "integrations.pgm")
+    occupancy = integrations.get("occupancy", {})
+    if not isinstance(occupancy, dict):
+        raise ConfigError("integrations.occupancy must be a mapping")
+    occupancy_command = _template_list(occupancy.get("command", []), "integrations.occupancy.command")
+    occupancy_check = _template_list(occupancy.get("check_command", []), "integrations.occupancy.check_command")
+    if bool(occupancy_command) != bool(occupancy_check):
+        raise ConfigError("occupancy command and check_command must be configured together")
+    pgm = integrations.get("pgm")
+    if pgm is None and occupancy_command:
+        pgm = dict(setup_file=fast_lio.get("setup_file"), package="unused",
+                   launch_file="unused", launch_args=[], generation_timeout_seconds=300,
+                   log_path="{session_dir}/occupancy_generation.log")
+    if not isinstance(pgm, dict):
+        raise ConfigError("integrations.pgm or integrations.occupancy must be configured")
     if backend == "scout_finalize":
         profile_key = "scout"
     elif backend == "ground_air_service":
@@ -187,6 +200,12 @@ def load_config(mapping_path, device_path):
     timeouts = _mapping(mapping, "timeouts")
     limits = _mapping(mapping, "limits")
     artifacts = _mapping(mapping, "artifacts")
+    if occupancy_command:
+        # PGM-only paths are unnecessary for a configured occupancy exporter.
+        artifacts.setdefault("source_pgm_path", os.path.join(os.path.dirname(artifacts["source_pcd_path"]), "map.pgm"))
+        artifacts.setdefault("source_yaml_path", os.path.join(os.path.dirname(artifacts["source_pcd_path"]), "map.yaml"))
+        artifacts.setdefault("pgm_path", "{session_dir}/map.pgm")
+        artifacts.setdefault("yaml_path", "{session_dir}/map.yaml")
 
     protocol_id = _text(mapping, "protocol_id")
     if protocol_id != "ccs-map-stream-v2":
@@ -251,9 +270,14 @@ def load_config(mapping_path, device_path):
     script_root = os.path.join(package_root, "scripts")
 
     return {
+        "occupancy_command": occupancy_command,
+        "source_ot_explicit": bool(artifacts.get("source_ot_path")),
+        "occupancy_check_command": occupancy_check,
+        "source_ot_template": _template(artifacts.get("source_ot_path", os.path.join(
+            os.path.dirname(artifacts["source_pcd_path"]), "map.ot")), "artifacts.source_ot_path"),
         "schema_version": 6,
         "protocol_id": protocol_id,
-        "capability_version": "0.13.3",
+        "capability_version": "0.14.0",
         "integration_backend": backend,
         "device_id": device_id,
         "device_ip": device_ip,
@@ -411,6 +435,8 @@ def load_config(mapping_path, device_path):
             _text(artifacts, "archive_root", "artifacts.archive_root"))),
         "pcd_template": _template(
             artifacts.get("pcd_path"), "artifacts.pcd_path", True),
+        "ot_template": _template(artifacts.get("ot_path", os.path.join(
+            os.path.dirname(artifacts["pcd_path"]), "map.ot")), "artifacts.ot_path", True),
         "pgm_template": _template(
             artifacts.get("pgm_path"), "artifacts.pgm_path", True),
         "yaml_template": _template(
@@ -514,6 +540,30 @@ def ground_air_map_directory(config, map_name):
 
 
 def build_integration_commands(config, values):
+    commands = _build_integration_commands(config, values)
+    context = command_context(config, values)
+    if config.get("occupancy_command"):
+        commands["occupancy_export"] = [part.format(**context) for part in config["occupancy_command"]]
+        checks = commands["checks"]
+        if config["integration_backend"] == "go2_accumulator":
+            commands.pop("generate_pgm", None)
+            checks = [item for item in checks if item != commands.get("check_pgm")]
+        commands["checks"] = checks + [
+            [part.format(**context) for part in config["occupancy_check_command"]]]
+        if config["integration_backend"] in ("scout_finalize", "managed_finalize", "ground_air_service"):
+            name = "save_map" if config["integration_backend"] == "ground_air_service" else "generate_pgm"
+            commands[name] = ["env", "CCS_OCCUPANCY_EXTERNAL=1"] + commands[name]
+    # Export wrappers discover the configured OT alongside the native PCD.
+    # Legacy profiles retain exactly their original command shape.
+    if config.get("source_ot_explicit"):
+        for name in ("generate_pgm", "save_map"):
+            if name in commands and config["integration_backend"] != "ducted_uav":
+                commands[name] = ["env", "CCS_SOURCE_OT=" + config["source_ot_template"].format(**context),
+                                  "CCS_TARGET_OT=" + context["ot_path"]] + commands[name]
+    return commands
+
+
+def _build_integration_commands(config, values):
     context = command_context(config, values)
     if config["integration_backend"] == "ducted_uav":
         base = ["rosrun", "epgeneral_uav_integration", "uav_stage_client.py"]

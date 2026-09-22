@@ -27,7 +27,14 @@ def load_config(path, device_path):
         network, storage, ros, stability = (
             data["network"], data["storage"], data["ros"], data["tf_stability"])
         reporting = data.get("tf_reporting", {})
+        regions = data.get("trusted_regions", {})
+        if (not isinstance(regions, dict) or type(regions.get("enabled", True)) is not bool
+                or not isinstance(regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions"), str)
+                or not regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions").strip()):
+            raise ConfigError("trusted_regions configuration is invalid")
         result = {
+            "trusted_regions_enabled": regions.get("enabled", True),
+            "trusted_regions_root": regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions"),
             "protocol_id": str(data["protocol_id"]), "enabled": bool(data["enabled"]),
             "backend": str(data["backend"]), "device_id": str(device_id),
             "bind_host": str(network["bind_host"]), "control_port": int(network["control_port"]),

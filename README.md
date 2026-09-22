@@ -141,12 +141,12 @@ rospack find epgeneral_device_config
 
 | 包文档 / 目录 | ROS 包名 | 版本 | 职责 |
 | --- | --- | --- | --- |
-| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.1.1 | 设备身份与共享配置 |
+| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.1.3 | 设备身份与共享配置 |
 | [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.4.1 | MQTT/MAVLink 通信与状态接入 |
 | [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.3.1 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.1.2 | 相机接入与 SRT 视频传输 |
-| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.13.3 | 地图传输与建图流程 |
-| [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.4.0 | 重定位与定位状态上报 |
+| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
+| [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.5.0 | 重定位与定位状态上报 |
 | [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.3 | 任务与导航执行协调 |
 | [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.2 | Go2 原生控制、状态与流程适配 |
 | [EPGeneral_uav_integration](devices/uav/EPGeneral_uav_integration/README.md) | `epgeneral_uav_integration` | 0.1.0 | UAV 原生建图、重定位与飞行阶段适配 |
@@ -231,3 +231,7 @@ git submodule update --init --recursive
 ---
 
 CCS_EDGE 使用 [Apache License 2.0](LICENSE)。各功能包的独立版本和历史变更见包级 README 与 CHANGELOG。
+
+## 可信区域（配套 CCS 0.26.0）
+
+重定位包支持可选的可信区域 XML 接收。默认开启接收，缺少文件不影响定位；下发整组替换，空集合清空。使用、配置和协议见 [可信区域](documents/INTERFACE_REFERENCE.md#可选可信区域接收)。
