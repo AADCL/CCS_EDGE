@@ -1,22 +1,10 @@
-"""Python 3.6 compatible ROS subscription boundary for MAVROS telemetry."""
+"""Python 3.6 compatible ROS subscription boundary for configurable health telemetry."""
 
 import time
 from threading import Lock
 
 from .config import RosTopicConfig
-
-
-def read_field(message, field_path):
-    """Read a dotted ROS message field path without evaluating user input."""
-    value = message
-    for field in field_path.split("."):
-        if not field:
-            raise ValueError("field path contains an empty segment")
-        if isinstance(value, dict):
-            value = value[field]
-        else:
-            value = getattr(value, field)
-    return value
+from .fields import extract, read_field
 
 
 def default_message_resolver(message_type):
@@ -41,19 +29,64 @@ class RosBridge(object):
         self._last_state_message = None
         self._last_connection_message = None
         self._connection_lock = Lock()
+        self._state_lock = Lock()
+        self._message_classes = {}
         self._freshness_timer = None
 
     def _subscribe(self, spec, callback, label):
-        message_class = self._message_resolver(spec.message_type)
+        message_class = self._message_classes[spec.message_type]
         self._subscriptions.append(self._rospy.Subscriber(spec.topic, message_class, callback, queue_size=10))
         self._logger.info("ros_subscribed stream=%s topic=%s type=%s", label, spec.topic, spec.message_type)
 
+    def validate_sources(self):
+        """Resolve every enabled source before opening any subscription or MQTT connection."""
+        ros = self._config.ros
+        specs = [ros.state, ros.battery, ros.mission]
+        if ros.connection is not None:
+            specs.append(ros.connection)
+        classes = {}
+        for spec in specs:
+            if not spec.enabled:
+                continue
+            cls = self._message_resolver(spec.message_type)
+            if cls is None:
+                raise RuntimeError("ROS message type is unavailable: " + spec.message_type)
+            classes[spec.message_type] = cls
+            # Generated ROS message classes expose __slots__; test doubles need not.
+            if hasattr(cls, "__slots__"):
+                sample = cls()
+                mappings = [value for key, value in getattr(spec, "mapping", {}).items()
+                            if not (spec is ros.state and key == "connected" and ros.connection_mode != "field")]
+                if getattr(spec, "field_path", None):
+                    mappings.append(spec.field_path)
+                for mapping in mappings:
+                    if mapping is None:
+                        continue
+                    path = mapping["field"] if isinstance(mapping, dict) else mapping
+                    try:
+                        read_field(sample, path)
+                    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                        raise RuntimeError("{0} field {1} is unavailable".format(spec.message_type, path)) from exc
+
+        self._message_classes = classes
+
+    def stop(self):
+        if self._freshness_timer is not None:
+            self._freshness_timer.shutdown()
+            self._freshness_timer = None
+        subscriptions, self._subscriptions = self._subscriptions, []
+        for subscription in subscriptions:
+            subscription.unregister()
+
     def start(self):
+        if not self._message_classes:
+            self.validate_sources()
         connection = self._config.ros.connection
         if connection is not None:
             self._health.update_connected(False)
             self._subscribe(connection, self._on_connection, "connection")
-        self._subscribe(self._config.ros.state, self._on_state, "state")
+        if self._config.ros.state.enabled:
+            self._subscribe(self._config.ros.state, self._on_state, "state")
         if self._config.ros.battery.enabled:
             self._subscribe(self._config.ros.battery, self._on_battery, "battery")
         else:
@@ -74,30 +107,31 @@ class RosBridge(object):
             self._subscribe(RosTopicConfig(mission.topic or "", mission.message_type or ""), self._on_mission, "mission")
 
     def _on_state(self, message):
-        mapping = self._config.ros.state.mapping
-        self._last_state_message = time.monotonic()
+        with self._state_lock:
+            mapping = self._config.ros.state.mapping
+            self._last_state_message = time.monotonic()
 
-        def mapped(name):
-            field_path = mapping.get(name)
-            if field_path is None:
-                return None
-            try:
-                return read_field(message, field_path)
-            except (AttributeError, KeyError, TypeError, ValueError) as exc:
-                self._logger.warning("state_field_unavailable field=%s error=%s", name, exc)
-                return None
+            def mapped(name):
+                field_path = mapping.get(name)
+                if field_path is None:
+                    return None
+                try:
+                    return extract(message, field_path)
+                except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                    self._logger.warning("state_field_unavailable field=%s error=%s", name, exc)
+                    return None
 
-        independent_connection = self._config.ros.connection is not None
-        connected = None
-        if not independent_connection:
-            connected = True if self._config.ros.state.connected_on_message else mapped("connected")
-        self._health.update_state(
-            connected,
-            mapped("armed"),
-            mapped("system_status"),
-            mapped("mode"),
-            preserve_connected=independent_connection,
-        )
+            independent_connection = self._config.ros.connection_mode in ("heartbeat", "disabled")
+            connected = None
+            if not independent_connection:
+                connected = True if self._config.ros.state.connected_on_message else mapped("connected")
+            self._health.update_state(
+                connected,
+                mapped("armed"),
+                mapped("system_status"),
+                mapped("mode"),
+                preserve_connected=independent_connection,
+            )
 
     def _on_connection(self, _message):
         with self._connection_lock:
@@ -118,7 +152,7 @@ class RosBridge(object):
             if field_path is None:
                 return None
             try:
-                return read_field(message, field_path)
+                return extract(message, field_path)
             except (AttributeError, KeyError, TypeError, ValueError) as exc:
                 self._logger.warning("battery_field_unavailable field=%s error=%s", name, exc)
                 return None
@@ -127,14 +161,16 @@ class RosBridge(object):
             mapped("percentage"),
             mapped("voltage"),
             mapped("current"),
+            percentage_unit=self._config.ros.battery.percentage_unit,
         )
 
     def _check_state_freshness(self, _event):
-        timeout = self._config.ros.state.timeout_seconds
-        if timeout is None:
-            return
-        if self._last_state_message is None or time.monotonic() - self._last_state_message > timeout:
-            self._health.update_connected(False)
+        with self._state_lock:
+            timeout = self._config.ros.state.timeout_seconds
+            if timeout is None:
+                return
+            if self._last_state_message is None or time.monotonic() - self._last_state_message > timeout:
+                self._health.update_connected(False)
 
     def _on_mission(self, message):
         try:

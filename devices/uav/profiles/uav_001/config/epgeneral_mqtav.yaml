@@ -1,3 +1,4 @@
+schema_version: 2
 mqtt:
   ground_station_ip: 192.168.50.101
   port: 1883
@@ -11,6 +12,7 @@ mqtt:
     heartbeat: mqtav/{device_id}/heartbeat
     status: mqtav/{device_id}/status
 ros:
+  connection_mode: field
   node_name: epgeneral_mqtav
   state:
     topic: /mavros/state
@@ -23,6 +25,7 @@ ros:
       system_status: system_status
       mode: mode
   battery:
+    percentage_unit: fraction
     topic: /mavros/battery
     message_type: sensor_msgs/BatteryState
     mapping:
@@ -31,6 +34,6 @@ ros:
       current: current
   mission:
     enabled: true
-    topic: /uav/UAV_001/task_status
+    topic: /uav/{device_id}/task_status
     message_type: std_msgs/String
     field_path: data

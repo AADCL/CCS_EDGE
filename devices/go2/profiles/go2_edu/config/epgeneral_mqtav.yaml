@@ -1,3 +1,4 @@
+schema_version: 2
 mqtt:
   ground_station_ip: "192.168.50.101"
   port: 1883
@@ -11,6 +12,7 @@ mqtt:
     heartbeat: "mqtav/{device_id}/heartbeat"
     status: "mqtav/{device_id}/status"
 ros:
+  connection_mode: freshness
   node_name: "epgeneral_mqtav"
   state:
     topic: "/livox/lidar"

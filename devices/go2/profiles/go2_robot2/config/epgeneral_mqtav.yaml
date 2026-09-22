@@ -1,3 +1,4 @@
+schema_version: 2
 mqtt:
   ground_station_ip: "192.168.50.101"
   port: 1883
@@ -11,7 +12,12 @@ mqtt:
     heartbeat: "mqtav/{device_id}/heartbeat"
     status: "mqtav/{device_id}/status"
 ros:
+  connection_mode: heartbeat
   node_name: "epgeneral_mqtav"
+  connection:
+    topic: "/go2/state/low_state"
+    message_type: "go2_control/Go2LowState"
+    timeout_seconds: 3.0
   state:
     topic: "/go2/control/enabled"
     message_type: "std_msgs/Bool"
@@ -19,12 +25,13 @@ ros:
     timeout_seconds: 3.0
     mapping: {connected: null, armed: data, system_status: null, mode: null}
   battery:
+    percentage_unit: fraction
     enabled: true
     topic: "/go2/battery_state"
     message_type: "sensor_msgs/BatteryState"
     mapping: {percentage: percentage, voltage: voltage, current: current}
   mission:
     enabled: true
-    topic: "/qrd/QRD_002/task_status"
+    topic: "/qrd/{device_id}/task_status"
     message_type: "std_msgs/String"
     field_path: data

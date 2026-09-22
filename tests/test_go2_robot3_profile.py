@@ -52,7 +52,7 @@ class Go2Robot3ProfileTests(unittest.TestCase):
                          "message_type": "go2_control/Go2LowState", "timeout_seconds": 3.0})
         self.assertEqual(ros["state"]["topic"], "/go2/control/enabled")
         self.assertEqual(ros["state"]["mapping"]["armed"], "data")
-        self.assertEqual(ros["mission"]["topic"], "/qrd/QRD_003/task_status")
+        self.assertEqual(ros["mission"]["topic"].format(device_id=config("device")["device"]["id"]), "/qrd/QRD_003/task_status")
 
     def test_telemetry_source_keeps_formal_wire_descriptor(self):
         descriptors = config("udp_telemetry")["descriptors"]

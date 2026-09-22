@@ -10,6 +10,7 @@
     <param name="execution_enabled" value="$(arg execution_enabled)"/>
   </node>
   <include file="$(find epgeneral_mqtav)/launch/epgeneral_mqtav.launch">
+    <arg name="config_dir" value="$(find epgeneral_device_config)/config"/>
     <arg name="log_dir" value="$(arg log_dir)/mqtav"/>
   </include>
   <include file="$(find epgeneral_udp_telemetry)/launch/epgeneral_udp_telemetry.launch">

@@ -26,7 +26,7 @@ CCS_EDGE 是 [CCS 地面站](https://github.com/AADCL/CCS_dev)配套的独立 RO
 
 | 能力 | 功能 |
 | --- | --- |
-| 设备接入 | 共享设备身份与配置，对接 MQTT/MAVLink 和设备原生状态 |
+| 设备接入 | 共享设备身份与配置，通过 MQTT 上报设备原生状态 |
 | 实时遥测 | 通过 UDP 上报位姿、IMU、状态描述及子系统信息 |
 | 视频传输 | 通过 SRT 传输低延迟视频，按设备 profile 选择相机与编码参数 |
 | 地图与建图 | 地图传输、建图流程协调、点云预览与结果归档 |
@@ -107,12 +107,14 @@ rospack find epgeneral_device_config
 
 | 启动方式 | 实际读取位置 | 修改后的生效方式 |
 | --- | --- | --- |
-| 包级 launch 默认入口 | `epgeneral_device_config/config/` 中的包内配置 | 停止并重新启动对应节点 |
+| 包级 launch 默认入口（MQTT 除外） | `epgeneral_device_config/config/` 中的包内配置 | 停止并重新启动对应节点 |
 | 设备一键脚本 | CCS 工作空间的 `config/<profile>/`，由脚本显式传入 | 停止并重新启动对应入口 |
 | 显式指定配置的单包调试 | launch 参数指定的配置文件 | 核验参数后重新启动 |
 
 修改仓库中的 profile 原件后，还需安装到设备实际读取的位置。各包的配置覆盖方式不同，均无热重载；
 `deployment.enabled` 等说明性字段不能代替实际启停开关。参数、launch 参数和 `CCS_*` 环境变量见[接口参考](documents/INTERFACE_REFERENCE.md)。
+
+`epgeneral_mqtav` 0.5.0 须显式传入 `config_dir`，不自动选择样例身份；参见[迁移及通用接入说明](epgeneral_mqtav/README.md)。
 
 ## 设备与 profile
 
@@ -141,8 +143,8 @@ rospack find epgeneral_device_config
 
 | 包文档 / 目录 | ROS 包名 | 版本 | 职责 |
 | --- | --- | --- | --- |
-| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.1.3 | 设备身份与共享配置 |
-| [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.4.1 | MQTT/MAVLink 通信与状态接入 |
+| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.1.4 | 设备身份与共享配置 |
+| [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.5.0 | 配置驱动 ROS 健康状态 MQTT 上报 |
 | [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.3.1 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.1.2 | 相机接入与 SRT 视频传输 |
 | [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
@@ -157,7 +159,7 @@ rospack find epgeneral_device_config
 ~~~text
 CCS_EDGE/
 ├── EPGeneral_device_config/          # 共享配置
-├── epgeneral_mqtav/                  # MQTT/MAVLink
+├── epgeneral_mqtav/                  # 通用 ROS → MQTT 状态上报
 ├── EPGeneral_udp_telemetry/          # UDP 遥测
 ├── EPGeneral_video_srt/              # SRT 视频
 ├── EPGeneral_map_stream/             # 地图与建图
