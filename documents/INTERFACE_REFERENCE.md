@@ -60,7 +60,7 @@ prepare 新增可选 artifact_formats，成果 manifest 支持 ot 角色及 SHA-
 
 MQTT 的 `ros.state/battery` 使用 `package/Message` 动态加载消息类，`mapping` 使用点分字段路径。Scout 来源为 `/scout_status`、`/BMS_status`；Wheeltec 为 `/odom`、`/PowerVoltage`；legacy Go2 用 `/livox/lidar` 新鲜度且禁用电池源；Robot2/Robot3 使用 `/go2/control/enabled`（std_msgs/Bool.data）及 `/go2/battery_state`（sensor_msgs/BatteryState），Robot3 另以周期 `/go2/state/low_state`（go2_control/Go2LowState，3 秒超时）判断连接；Ground-Air 使用 `/mavros/state`、`/mavros/battery`。没有可确认的数据时不能填造电池或飞控状态。
 
-UDP descriptor 的 pose/imu/text_status 加载具体消息；availability/pointcloud_status 使用 AnyMsg 监测到达时间。`pgm_file` 从状态文件取得 map_id，再检查地图根目录内的 `map.pgm`，不是订阅示例 topic。默认诊断输出为 `/epgeneral_udp_telemetry/diagnostics`（diagnostic_msgs/DiagnosticArray），链路状态为 `/epgeneral_udp_telemetry/link/udp_tx`（std_msgs/Bool，latched），可按 launch 覆盖。
+UDP 的 ros_fields/value_status 加载具体消息并读取字段，topic_freshness 使用 AnyMsg 监测到达时间，不能判断 Bool 值。file_status 从状态 JSON 取得配置字段，在根目录检查 path_template（默认 map_id/map.pgm），不订阅示例 topic；disabled 不创建来源。默认诊断输出为 `/epgeneral_udp_telemetry/diagnostics`（diagnostic_msgs/DiagnosticArray），链路状态为 `/epgeneral_udp_telemetry/link/udp_tx`（std_msgs/Bool，latched），可按 launch 覆盖。
 
 视频输入类型仅为 `sensor_msgs/Image` 或 `sensor_msgs/CompressedImage`，输出无 ROS 消息。运行依赖 appsrc、videoconvert、x264enc、h264parse、mpegtsmux、srtsink。地面站作为 Caller 连接端侧 UDP 9000；YAML 延迟单位为 ms，FFmpeg SRT URL 的 latency 单位为微秒。
 
@@ -172,7 +172,7 @@ Ground-Air 输入 `/cloud_registered` 在 camera_init，预览需转换为 odom�
 | relocalization | launch 的 config_file/device_config_file 转为 CLI；阶段环境只对子进程生效 |
 | map_stream | 私有 mapping_config_file/device_config_file 选择 YAML |
 | task_control | 私有 task_config_file/device_config_file；适配器读取同一配置 |
-| udp_telemetry | 私有路径读取 YAML，再由 destination_host/destination_port/link_status_topic/diagnostics_topic 覆盖 |
+| udp_telemetry | 显式 config_dir 或完整文件对读取 YAML；仅非空 destination_host/destination_port/link_status_topic/diagnostics_topic 覆盖 |
 | video_srt | device YAML 加载到全局 /edge_device；video YAML 加载到节点私有参数，C++ 启动读取 |
 | ground_air_control | 无独立 YAML；launch 参数控制 map_id/maps_root/service_wait_timeout/relocalize_timeout |
 
@@ -255,32 +255,50 @@ UAV 补充字段：
 <a id="documents-interface-reference-md-6-udp_telemetryyaml"></a>
 ## 6. udp_telemetry.yaml
 
-descriptor 的 name/display_name/type/level 共同决定 SHA-256 descriptor_hash；源 topic/mapping 不参与该 hash。修改 descriptor 身份或显示定义时必须同步地面站接受的描述符，不得只改端侧。
+name/display_name/type/level 共同决定 SHA-256 descriptor_hash；source 与设备身份不参与该 hash。修改公共定义须同步地面站，修改来源无需改变接收协议。配置 schema 与线协议版本独立。详见 [UDP 重构与迁移](UDP_TELEMETRY_GENERIC.md)。
 
 | 键 | 类型 / 默认或要求 | 定义与约束 |
 | --- | --- | --- |
-| `schema_version` | int；必填 1 | 配置 schema |
-| `protocol_id` | string；应填 ccs-udp-telemetry-v1 | 解析缺省为空，不能省略后期待地面站正常接收 |
-| `network.destination_host` | string；应填地面站 IP | 解析缺省为空；launch 可覆盖 |
-| `network.destination_port` | int；必填，示例 14560 | 1..65535；launch 可覆盖 |
-| `network.max_datagram_bytes` | int；默认 16384 | 512..65507，最终数据报上限 |
-| `descriptors[].name` | string；必填 | 非空且列表内唯一 |
-| `descriptors[].display_name` | string；必填 | 地面站显示名，参与 hash |
+| `schema_version` | int；1 或 2，新配置使用 2 | 配置 schema；schema 2 拒绝未知配置键，线协议仍是 schema 1 |
+| `protocol_id` | string；必填 | 必须 ccs-udp-telemetry-v1 |
+| `network.destination_host` | string；必填 | IPv4/IPv6 字面地址，不解析 DNS；显式 launch 参数可覆盖 |
+| `network.destination_port` | int；必填 | 1..65535，常用 14560；显式 launch 参数可覆盖 |
+| `network.max_datagram_bytes` | int；16384 | 512..65507，最终数据报大小上限 |
+| `runtime.link_status_topic` | string；/epgeneral_udp_telemetry/link/udp_tx | 输出 latched std_msgs/Bool；支持 {device_id} |
+| `runtime.diagnostics_topic` | string；/epgeneral_udp_telemetry/diagnostics | 输出 DiagnosticArray；支持 {device_id} |
+| `descriptors[].name` | string；必填 | 非空且唯一，地面站部分名称有业务语义 |
+| `descriptors[].display_name` | string；必填 | 显示名，参与 hash |
 | `descriptors[].type` | enum；必填 | pose/imu/pointcloud_status/availability/text_status |
-| `descriptors[].level` | int；必填 | 1=20 Hz，2=5 Hz，3=1 Hz；不是任意频率设置 |
-| `descriptors[].source.kind` | string；可选 | pgm_file 选择文件检测；未配置时使用话题源 |
-| `descriptors[].source.topic` | string；话题源必填 | ROS 输入名；pgm_file 不订阅此键 |
-| `descriptors[].source.message_type` | string；按类型必填 | pose/imu/text_status 必填具体消息；新鲜度检测用 AnyMsg |
-| `descriptors[].source.timeout_seconds` | number；点云默认 1.0，availability/text 默认 3.0 | 秒，新鲜度阈值应为正值；pose/imu 复用最近值并报告 sample_age，不通过此键停止输出 |
-| `descriptors[].source.mapping.position` | string；默认 pose.position | pose 的位置路径，PoseStamped 为 pose.position，Odometry 为 pose.pose.position |
-| `descriptors[].source.mapping.orientation` | string；pose 默认 pose.orientation，imu 默认 orientation | 四元数路径 |
-| `descriptors[].source.mapping.angular_velocity` | string；默认 angular_velocity | IMU 角速度路径 |
-| `descriptors[].source.mapping.linear_acceleration` | string；默认 linear_acceleration | IMU 加速度路径 |
-| `descriptors[].source.mapping.value` | string；默认 data | text_status 文本路径 |
-| `descriptors[].source.state_file` | string；pgm_file 必填 | 重定位活动地图状态 JSON |
-| `descriptors[].source.map_root` | string；pgm_file 必填 | 检查 map_id/map.pgm 的目录，要求 type=availability |
+| `descriptors[].level` | int；必填 | pose/imu 为 1=20 Hz；pointcloud_status 为 2=5 Hz；availability/text_status 为 3=1 Hz |
+| `descriptors[].source.mode` | enum；schema 2 必填 | ros_fields/topic_freshness/value_status/file_status/disabled；详见通用化说明 |
+| `descriptors[].source.kind` | string；兼容项 | 只支持 pgm_file，须搭配 file_status；schema 1 未声明 mode 时据此推断 |
+| `descriptors[].source.topic` | string；ROS 源必填 | 绝对话题名，支持 {device_id}；file_status 不使用此键 |
+| `descriptors[].source.message_type` | string；字段源必填 | package/Message；ros_fields/value_status 预检消息类；topic_freshness 使用 AnyMsg |
+| `descriptors[].source.queue_size` | int；50 | ROS 订阅队列，1..10000 |
+| `descriptors[].source.max_samples` | int；1000 | 每来源缓存 1..100000；超限淘汰最旧样本并计数 |
+| `descriptors[].source.aggregation` | enum；pose/imu 默认 mean，其他 latest | pose/imu 支持 mean/latest，文本与值状态仅 latest |
+| `descriptors[].source.stale_policy` | enum；schema 2 invalidate，schema 1 hold | ros_fields/value_status 的过期策略；hold 明确保留最近值 |
+| `descriptors[].source.max_age_seconds` | number；默认 timeout_seconds 或 3 | invalidate 的过期阈值，有限正数且不超过 3600 秒 |
+| `descriptors[].source.timeout_seconds` | number；点云 1，状态/文本 3 | topic_freshness 与文本可用性阈值；字段源可回退 max_age_seconds，范围 (0,3600] |
+| `descriptors[].source.mapping.position` | string 或 x/y/z 字典；pose.position | 位置点分路径；Odometry 通常为 pose.pose.position；字典为逐分量路径 |
+| `descriptors[].source.mapping.orientation` | string 或 x/y/z/w 字典 | pose 默认 pose.orientation，imu 默认 orientation；四元数分量 |
+| `descriptors[].source.mapping.angular_velocity` | string 或 x/y/z 字典；angular_velocity | IMU 角速度路径 |
+| `descriptors[].source.mapping.linear_acceleration` | string 或 x/y/z 字典；linear_acceleration | IMU 加速度路径 |
+| `descriptors[].source.mapping.value` | string；data | 文本、Bool 或枚举的公开点分字段，不支持表达式/数组下标 |
+| `descriptors[].source.units.position` | enum；schema 2 的 pose 必填 | m/cm/mm，输出 m |
+| `descriptors[].source.units.angular_velocity` | enum；schema 2 的 imu 必填 | rad/s 或 deg/s，输出 rad/s |
+| `descriptors[].source.units.linear_acceleration` | enum；schema 2 的 imu 必填 | m/s2 或 g，输出 m/s2，1g=9.80665m/s2 |
+| `descriptors[].source.expected_frame` | string；可选 | 校验 header.frame_id；不执行 TF 或坐标变换 |
+| `descriptors[].source.values` | 标量到状态的字典 | value_status 使用，值只能 available/unavailable/unknown；按标量类型精确匹配，未匹配 unknown |
+| `descriptors[].source.values.True` | YAML true；默认 available | Bool true 的映射，键为布尔而非字符串 |
+| `descriptors[].source.values.False` | YAML false；默认 unavailable | Bool false 的映射，消息到达不会将其变成 available |
+| `descriptors[].source.text_limit` | int；128 | 文本截断字符数，范围 1..128 |
+| `descriptors[].source.state_file` | string；file_status 必填 | 状态 JSON 的绝对或 ~/ 路径，支持 {device_id}，上限 1 MiB |
+| `descriptors[].source.map_root` | string；file_status 必填 | 成果根目录，绝对或 ~/ 路径，支持 {device_id}，禁止符号链接 |
+| `descriptors[].source.state_field` | string；map_id | 状态 JSON 内地图 ID 的点分字段路径 |
+| `descriptors[].source.path_template` | string；{map_id}/map.pgm | 受限相对文件路径，仅支持 {map_id}，可改为 OT 等文件；拒绝路径穿越/符号链接/非普通文件 |
 
-平滑窗口按等级频率聚合，非有限值和零范数四元数被隔离。排查时关注 accepted_count、last_rejection_reason、sample_age；不要用 sendto 状态代替端到端心跳验收。
+新模板使用过期失效；共享及八份历史 profile 显式保留 hold。预检先于 ROS/socket 建立，未知消息类型或字段导致启动失败。NaN/Inf、无效四元数及单项快照失败隔离到对应 descriptor，disabled 输出 valid=false。文本 hold 超过 timeout_seconds 后保留 value 但 status 为 unavailable。
 
 <a id="documents-interface-reference-md-7-videoyaml"></a>
 ## 7. video.yaml
@@ -646,14 +664,13 @@ UAV 补充字段：
 
 | launch / 参数 | 默认或要求 | 作用 |
 | --- | --- | --- |
-| 所有业务主 launch：device_config_file | 共享目录/device.yaml | 唯一身份配置 |
+| 除 MQTT/UDP 外的业务主 launch：device_config_file | 共享目录/device.yaml | 唯一身份配置；MQTT/UDP 要求显式选择 |
 | epgeneral_mqtav.launch：config_dir | 空，须显式填写 | 同时加载 device.yaml 和 epgeneral_mqtav.yaml；兼容显式 config_file/device_config_file 文件对 |
 | epgeneral_mqtav.launch：log_dir | HOME/.ros/log/epgeneral_mqtav/设备ID | 耐久日志目录，可覆盖 |
-| epgeneral_udp_telemetry.launch：telemetry_config_file | 共享目录/udp_telemetry.yaml | 遥测配置 |
-| epgeneral_udp_telemetry.launch：destination_host | 192.168.151.100 | 总会覆盖 YAML 的同项；现场必须显式传值 |
-| epgeneral_udp_telemetry.launch：destination_port | 14560 | 同上，端口覆盖 |
-| epgeneral_udp_telemetry.launch：link_status_topic | /epgeneral_udp_telemetry/link/udp_tx | Bool 发布名 |
-| epgeneral_udp_telemetry.launch：diagnostics_topic | /epgeneral_udp_telemetry/diagnostics | DiagnosticArray 发布名 |
+| epgeneral_udp_telemetry.launch：config_dir | 空，须显式选择 | 同时加载 device.yaml 与 udp_telemetry.yaml；与完整文件对互斥 |
+| epgeneral_udp_telemetry.launch：telemetry_config_file / device_config_file | 均为空 | 兼容显式完整文件对，不能只传其中一个 |
+| epgeneral_udp_telemetry.launch：destination_host / destination_port | 均为空 | 仅非空值覆盖 YAML，不再隐式覆盖目标 |
+| epgeneral_udp_telemetry.launch：link_status_topic / diagnostics_topic | 均为空 | 仅非空值覆盖 YAML runtime 输出话题 |
 | epgeneral_video_srt.launch / epgeneral_realsense_d435i_srt.launch：video_config_file | 共享目录/video.yaml | 视频配置；后者不会自动安装相机驱动 |
 | epgeneral_map_stream.launch：mapping_config_file | 共享目录/map_stream.yaml | 建图配置 |
 | epgeneral_map_stream.launch：log_dir | 空字符串 | 可选 map-stream 事件日志目录；设置后 FAST-LIO 与 PGM 日志进入 `sessions/<session_id>` 子目录 |
@@ -1279,12 +1296,14 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | 文件与完整键 | 当前接口名 | ROS 类型 / 接口类别 | 方向、字段与生效条件 |
 | --- | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；字段 {"connected": null, "armed": null, "system_status": null, "mode": null} |
-| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/lio/odometry` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/lio/odometry` | AnyMsg；外部 nav_msgs/Odometry | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/nvidia/.ros/ccs_edge_dev/state/relocalization.json；map_root=/home/nvidia/go2_mid360_nav/maps/ccs_download |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/lio/odometry` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/lio/odometry` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/nvidia/.ros/ccs_edge_dev/state/relocalization.json；map_root=/home/nvidia/go2_mid360_nav/maps/ccs_download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/epgeneral_udp_telemetry/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/epgeneral_udp_telemetry/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1311,14 +1330,16 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/go2/control/enabled` | std_msgs/Bool（message_type） | 接收；字段 {"connected": null, "armed": "data", "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/go2/battery_state` | sensor_msgs/BatteryState（message_type） | 接收；字段 {"percentage": "percentage", "voltage": "voltage", "current": "current"} |
 | `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/{device_id}/task_status` | std_msgs/String（message_type）；展开为 /qrd/QRD_002/task_status | 接收；字段 {"value": "data"} |
-| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/odom_nav` | AnyMsg；外部 nav_msgs/Odometry | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[localization].source.topic` | `/localization/ok` | AnyMsg；外部 std_msgs/Bool | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[chassis].source.topic` | `/go2/diagnostics` | AnyMsg；外部 diagnostic_msgs/DiagnosticArray | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/unitree/ccs_edge_ws/run/state/relocalization.json；map_root=/home/unitree/ccs_edge_ws/maps/download |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/odom_nav` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[localization].source.topic` | `/localization/ok` | std_msgs/Bool | value_status；读取 Bool 值；false=unavailable；hold 保留 latched 状态 |
+| `udp_telemetry.yaml: descriptors[chassis].source.topic` | `/go2/diagnostics` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/unitree/ccs_edge_ws/run/state/relocalization.json；map_root=/home/unitree/ccs_edge_ws/maps/download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/qrd/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/qrd/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1353,14 +1374,16 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/go2/control/enabled` | std_msgs/Bool（message_type） | 接收；字段 {"connected": null, "armed": "data", "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/go2/battery_state` | sensor_msgs/BatteryState（message_type） | 接收；字段 {"percentage": "percentage", "voltage": "voltage", "current": "current"} |
 | `epgeneral_mqtav.yaml: ros.mission.topic` | `/qrd/{device_id}/task_status` | std_msgs/String（message_type）；展开为 /qrd/QRD_003/task_status | 接收；字段 {"value": "data"} |
-| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/odom_nav` | AnyMsg；外部 nav_msgs/Odometry | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[localization].source.topic` | `/localization/ok` | AnyMsg；外部 std_msgs/Bool | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[chassis].source.topic` | `/go2/diagnostics` | AnyMsg；外部 diagnostic_msgs/DiagnosticArray | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/unitree/ccs_edge_ws/run/state/relocalization.json；map_root=/home/unitree/ccs_edge_ws/maps/download |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/odom_nav` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/go2/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/odom_nav` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[localization].source.topic` | `/localization/ok` | std_msgs/Bool | value_status；读取 Bool 值；false=unavailable；hold 保留 latched 状态 |
+| `udp_telemetry.yaml: descriptors[chassis].source.topic` | `/go2/diagnostics` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/unitree/ccs_edge_ws/run/state/relocalization.json；map_root=/home/unitree/ccs_edge_ws/maps/download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/qrd/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/qrd/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@15；外部相机先就绪 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1393,16 +1416,18 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | --- | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/mavros/state` | mavros_msgs/State（message_type） | 接收；字段 {"connected": "connected", "armed": "armed", "system_status": "system_status", "mode": "mode"} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/mavros/battery` | sensor_msgs/BatteryState（message_type） | 接收；字段 {"percentage": "percentage", "voltage": "voltage", "current": "current"} |
-| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/mavros/local_position/pose` | geometry_msgs/PoseStamped | 接收；pose；字段 {"position": "pose.position", "orientation": "pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/Odometry` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/mavros/imu/data` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg；外部 nav_msgs/Odometry | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ground_air/mapping/status` | AnyMsg；外部类型须现场核验 | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[octomap_mapping].source.topic` | `/octomap_binary` | AnyMsg；外部 octomap_msgs/Octomap | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[occupancy_grid_mapping].source.topic` | `/map` | AnyMsg；外部 nav_msgs/OccupancyGrid | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/mapping_mode` | std_msgs/String | 接收；text_status；到达超时 3.0s；字段 {"value": "data"} |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/mavros/local_position/pose` | geometry_msgs/PoseStamped | ros_fields；字段 {'position': 'pose.position', 'orientation': 'pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/Odometry` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/mavros/imu/data` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ground_air/mapping/status` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[octomap_mapping].source.topic` | `/octomap_binary` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[occupancy_grid_mapping].source.topic` | `/map` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/mapping_mode` | std_msgs/String | ros_fields；字段 {'value': 'data'}；hold |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/agv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/agv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/a8_cam/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 1280×720@30；外部相机先就绪 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=base_link |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=base_link |
@@ -1434,12 +1459,14 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | --- | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/scout_status` | scout_msgs/ScoutStatus（message_type） | 接收；字段 {"connected": null, "armed": null, "system_status": "fault_code", "mode": "control_mode"} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/BMS_status` | scout_msgs/ScoutBmsStatus（message_type） | 接收；字段 {"percentage": null, "voltage": "battery_voltage", "current": null} |
-| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/scout/odom` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg；外部类型须现场核验 | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/nvidia/.ros/ccs_edge_dev/state/relocalization.json；map_root=/home/nvidia/livox_fastlio/maps/ccs_download |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/scout/odom` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/nvidia/.ros/ccs_edge_dev/state/relocalization.json；map_root=/home/nvidia/livox_fastlio/maps/ccs_download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1466,12 +1493,14 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | --- | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/odom` | nav_msgs/Odometry（message_type） | 接收；字段 {"connected": null, "armed": null, "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/PowerVoltage` | std_msgs/Float32（message_type） | 接收；字段 {"percentage": null, "voltage": "data", "current": null} |
-| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/fastlio_odom` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg；外部类型须现场核验 | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/relocalization.json；map_root=/home/nrc19/livox_fastlio/maps/ccs_download |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/fastlio_odom` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/relocalization.json；map_root=/home/nrc19/livox_fastlio/maps/ccs_download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | Gemini 336L 彩色输入；输出 640×360@30、2500 kbps；根脚本默认启动，可用 CCS_ENABLE_VIDEO=0 关闭 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1521,12 +1550,14 @@ UGV_003 专用导航 launch 固定 `TebLocalPlannerROS/max_vel_x=0.20`、`max_ve
 | --- | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/odom` | nav_msgs/Odometry（message_type） | 接收；字段 {"connected": null, "armed": null, "system_status": null, "mode": null} |
 | `epgeneral_mqtav.yaml: ros.battery.topic` | `/PowerVoltage` | std_msgs/Float32（message_type） | 接收；字段 {"percentage": null, "voltage": "data", "current": null} |
-| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/fastlio_odom` | nav_msgs/Odometry | 接收；pose；字段 {"position": "pose.pose.position", "orientation": "pose.pose.orientation"} |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | 接收；imu；字段 {"orientation": "orientation", "angular_velocity": "angular_velocity", "linear_acceleration": "linear_acceleration"} |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；pointcloud_status；到达超时 1.0s |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg；外部 livox_ros_driver2/CustomMsg | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg；外部类型须现场核验 | 接收；availability；到达超时 3.0s |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 文件接口，无 ROS 类型 | 不订阅；state_file=/home/nrc15/ccs_edge_ws/run/state/relocalization.json；map_root=/home/nrc15/ccs_edge_ws/maps/download |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/fastlio_odom` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/livox/imu` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/Odometry` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/nrc15/ccs_edge_ws/run/state/relocalization.json；map_root=/home/nrc15/ccs_edge_ws/maps/download；path_template={map_id}/map.pgm |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；根脚本不启动视频 |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1596,16 +1627,18 @@ rossrv md5 std_srvs/Trigger
 | `task_control.yaml: ros.command_topic` | `/uav/UAV_001/execution_command` | — |
 | `task_control.yaml: ros.feedback_topic` | `/uav/UAV_001/execution_feedback` | — |
 | `task_control.yaml: ros.status_topic` | `/uav/UAV_001/task_status` | — |
-| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/mavros/local_position/pose` | geometry_msgs/PoseStamped |
-| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/ducted/localization/body_odom` | nav_msgs/Odometry |
-| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/mavros/imu/data` | sensor_msgs/Imu |
-| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | — |
-| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | — |
-| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/ducted/localization/odom` | — |
-| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/map_pgm` | — |
-| `udp_telemetry.yaml: descriptors[octomap_mapping].source.topic` | `/octomap_binary` | — |
-| `udp_telemetry.yaml: descriptors[occupancy_grid_mapping].source.topic` | `/map` | — |
-| `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/uav/UAV_001/stage_status` | std_msgs/String |
+| `udp_telemetry.yaml: descriptors[global_pose].source.topic` | `/mavros/local_position/pose` | geometry_msgs/PoseStamped | ros_fields；字段 {'position': 'pose.position', 'orientation': 'pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[vision_pose].source.topic` | `/ducted/localization/body_odom` | nav_msgs/Odometry | ros_fields；字段 {'position': 'pose.pose.position', 'orientation': 'pose.pose.orientation'}；hold |
+| `udp_telemetry.yaml: descriptors[imu].source.topic` | `/mavros/imu/data` | sensor_msgs/Imu | ros_fields；字段 {'orientation': 'orientation', 'angular_velocity': 'angular_velocity', 'linear_acceleration': 'linear_acceleration'}；hold |
+| `udp_telemetry.yaml: descriptors[livox_pointcloud].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 1.0s |
+| `udp_telemetry.yaml: descriptors[livox_driver].source.topic` | `/livox/lidar` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[fastlio2].source.topic` | `/ducted/localization/odom` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/map_pgm` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[octomap_mapping].source.topic` | `/octomap_binary` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[occupancy_grid_mapping].source.topic` | `/map` | AnyMsg | topic_freshness；仅到达时间，超时 3.0s |
+| `udp_telemetry.yaml: descriptors[mapping_mode].source.topic` | `/uav/{device_id}/stage_status` | std_msgs/String | ros_fields；字段 {'value': 'data'}；hold |
+| `udp_telemetry.yaml: runtime.link_status_topic` | `/epgeneral_udp_telemetry/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
+| `udp_telemetry.yaml: runtime.diagnostics_topic` | `/epgeneral_udp_telemetry/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 
 RTSP launch 增加 `decoder_preload` 参数，仅 UAV ARM64 设置 libgomp 预加载路径。/ctrl_cmd/state 是整数 ROS 参数。完整边界见 [UAV 指南](devices/uav/DEPLOYMENT_GUIDE.md)。
 

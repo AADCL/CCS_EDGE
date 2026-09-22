@@ -3,11 +3,8 @@ import threading
 from collections import deque
 
 
-def read_path(value, path):
-    current = value
-    for part in path.split("."):
-        current = getattr(current, part)
-    return current
+from .sources import read_path
+from .config import source_mode
 
 
 def quaternion_to_euler_degrees(x, y, z, w):
@@ -41,7 +38,8 @@ def average_quaternions(values):
 class TelemetrySampler(object):
     def __init__(self, descriptor):
         self.descriptor = descriptor
-        self.samples = []
+        self.samples = deque(maxlen=descriptor["source"].get("max_samples", 1000))
+        self.dropped_count = 0
         self.last_output = None
         self.last_sample_time = None
         self.event_times = deque(maxlen=50)
@@ -59,6 +57,8 @@ class TelemetrySampler(object):
                 self.rejected_count += 1
                 self.last_rejection_reason = reason
                 return False
+            if len(self.samples) == self.samples.maxlen:
+                self.dropped_count += 1
             self.samples.append(sample)
             self.last_sample_time = now
             self.event_times.append(now)
@@ -84,6 +84,7 @@ class TelemetrySampler(object):
             age = None if self.last_sample_time is None else max(0.0, now - self.last_sample_time)
             return {
                 "received_count": self.received_count,
+                "dropped_count": self.dropped_count,
                 "accepted_count": self.accepted_count,
                 "rejected_count": self.rejected_count,
                 "last_sample_age_seconds": age,
@@ -93,6 +94,19 @@ class TelemetrySampler(object):
     def snapshot(self, now):
         with self.lock:
             data_type = self.descriptor["type"]
+            source = self.descriptor["source"]
+            mode = source_mode(self.descriptor)
+            if mode == "disabled":
+                return {"valid": False, "status": "unknown", "sample_age_seconds": None}
+            if mode == "value_status":
+                if self.samples:
+                    self.last_output = self.samples[-1]
+                    self.samples.clear()
+                if self.last_output is None:
+                    return {"valid": False, "status": "unknown", "sample_age_seconds": None}
+                age = max(0.0, now - self.last_sample_time)
+                expired = source.get("stale_policy", "hold") == "invalidate" and age > source.get("max_age_seconds", 3.0)
+                return {"valid": not expired, "status": "unknown" if expired else self.last_output["status"], "sample_age_seconds": age}
             if data_type == "availability":
                 return self._availability(now)
             if data_type == "pointcloud_status":
@@ -100,13 +114,15 @@ class TelemetrySampler(object):
             if data_type == "text_status":
                 return self._text_status(now)
             if self.samples:
-                samples = self.samples
-                self.samples = []
+                samples = list(self.samples)
+                self.samples.clear()
+                if source.get("aggregation", "mean") == "latest":
+                    samples = samples[-1:]
                 self.last_output = self._average(samples, data_type)
             if self.last_output is None:
                 return {"valid": False, "sample_age_seconds": None}
             output = dict(self.last_output)
-            output["valid"] = True
+            output["valid"] = not (source.get("stale_policy", "hold") == "invalidate" and now - self.last_sample_time > source.get("max_age_seconds", 3.0))
             output["sample_age_seconds"] = max(0.0, now - self.last_sample_time)
             return output
 
@@ -131,14 +147,15 @@ class TelemetrySampler(object):
         timeout = float(self.descriptor["source"].get("timeout_seconds", 3.0))
         if self.samples:
             self.last_output = self.samples[-1]
-            self.samples = []
+            self.samples.clear()
         if self.last_output is None or self.last_sample_time is None:
             return {"valid": False, "status": "unknown", "value": None, "sample_age_seconds": None}
         age = max(0.0, now - self.last_sample_time)
+        expired = self.descriptor["source"].get("stale_policy", "hold") == "invalidate" and age > self.descriptor["source"].get("max_age_seconds", timeout)
         return {
-            "valid": True,
-            "status": "available" if age <= timeout else "unavailable",
-            "value": self.last_output["value"],
+            "valid": not expired,
+            "status": "unknown" if expired else "available" if age <= timeout else "unavailable",
+            "value": None if expired else self.last_output["value"],
             "sample_age_seconds": age,
         }
 

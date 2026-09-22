@@ -14,7 +14,7 @@
     <arg name="log_dir" value="$(arg log_dir)/mqtav"/>
   </include>
   <include file="$(find epgeneral_udp_telemetry)/launch/epgeneral_udp_telemetry.launch">
-    <arg name="destination_host" value="192.168.50.101"/>
+    <arg name="config_dir" value="$(find epgeneral_device_config)/config"/>
   </include>
   <include file="$(find epgeneral_video_srt)/launch/rtsp_srt.launch">
     <arg name="decoder_preload" value="/lib/aarch64-linux-gnu/libgomp.so.1"/>

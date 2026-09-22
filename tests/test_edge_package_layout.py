@@ -77,8 +77,6 @@ class EdgePackageLayoutTests(unittest.TestCase):
                 "config/relocalization.yaml",
             "EPGeneral_task_control/launch/epgeneral_task_control.launch":
                 "config/task_control.yaml",
-            "EPGeneral_udp_telemetry/launch/epgeneral_udp_telemetry.launch":
-                "config/udp_telemetry.yaml",
             "EPGeneral_video_srt/launch/epgeneral_video_srt.launch":
                 "config/video.yaml",
         }
@@ -95,6 +93,13 @@ class EdgePackageLayoutTests(unittest.TestCase):
         self.assertEqual(arguments["config_dir"], "")
         self.assertEqual(arguments["config_file"], "")
         self.assertEqual(arguments["device_config_file"], "")
+
+    def test_udp_requires_explicit_selection_and_no_implicit_overrides(self):
+        launch = ElementTree.parse(EDGE_ROOT / "EPGeneral_udp_telemetry/launch/epgeneral_udp_telemetry.launch").getroot()
+        arguments = {arg.attrib["name"]: arg.attrib.get("default") for arg in launch.findall("arg")}
+        for key in ("config_dir", "telemetry_config_file", "device_config_file", "destination_host", "destination_port", "link_status_topic", "diagnostics_topic"):
+            self.assertEqual(arguments[key], "")
+        self.assertEqual(launch.find("node").attrib["required"], "true")
 
     def test_obsolete_packages_are_absent(self):
         self.assertFalse((EDGE_ROOT / "EPQRD_go2_bridge").exists())

@@ -400,14 +400,17 @@ roslaunch epgeneral_mqtav epgeneral_mqtav.launch \
 <a id="documents-user-manual-md-53-epgeneral_udp_telemetry"></a>
 ### 5.3 epgeneral_udp_telemetry
 
+0.4.0 须显式选择配置，运行 YAML 由 epgeneral_device_config 保存和安装。以下 CFG 指向已经部署的共享目录或 profile 目录：
+
 ~~~bash
-roslaunch epgeneral_udp_telemetry epgeneral_udp_telemetry.launch \
-  device_config_file:="$CFG/device.yaml" telemetry_config_file:="$CFG/udp_telemetry.yaml" \
-  destination_host:=192.168.50.101 destination_port:=14560
-rostopic echo -n 1 /epgeneral_udp_telemetry/diagnostics
+rosrun epgeneral_udp_telemetry epgeneral_udp_telemetry_node.py --config-dir "$CFG" --check-config
+rosrun epgeneral_udp_telemetry epgeneral_udp_telemetry_node.py --config-dir "$CFG" --check-ros
+roslaunch epgeneral_udp_telemetry epgeneral_udp_telemetry.launch config_dir:="$CFG"
 ~~~
 
-把 destination_host 替换为实际地面站地址；该 launch 默认会覆盖 YAML，不传参会使用 192.168.151.100。诊断命令在另一个已 source 终端执行。profile 可能重命名诊断话题，应使用实际 launch 配置。accepted_count 应随有效源增长；descriptor hash 不匹配、未知设备、NaN/Inf、旧 session 或乱序需结合地面站日志排查。
+--check-config 不需要 ROS 或网络；--check-ros 额外检查消息类型和字段，不创建订阅/socket。兼容显式 device_config_file/telemetry_config_file 完整文件对。destination_host/destination_port 默认空，仅显式非空参数覆盖 YAML；不会再默认发往 192.168.151.100。诊断输出使用 runtime.diagnostics_topic 或显式覆盖值；按实际配置执行 rostopic echo。
+
+schema 2 使用 ros_fields、topic_freshness、value_status、file_status、disabled 五种模式。Bool 的 false 状态须用 value_status；topic_freshness 只表示收到消息。历史 profile 显式 hold 保留最近值，新模板 invalidate 会将过期数据标记无效。修改来源不改变 descriptor hash，修改公共描述符需要同步地面站。关注 accepted_count/rejected_count/dropped_count、样本年龄及 source stale，sendto 结果不能替代地面站验收。详见 [UDP 重构与迁移](UDP_TELEMETRY_GENERIC.md)。
 
 <a id="documents-user-manual-md-54-epgeneral_video_srt"></a>
 ### 5.4 epgeneral_video_srt

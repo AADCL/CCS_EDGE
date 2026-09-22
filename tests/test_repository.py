@@ -38,7 +38,7 @@ class RepositoryTests(unittest.TestCase):
             record = ROOT / "documents/devices" / definition["device_type"] / "DEPLOYMENT_RECORD.md"
             self.assertIn(identity, record.read_text(encoding="utf-8"))
         self.assertEqual({p.name for p in (ROOT/"documents").glob("*.md")},
-                         {"USER_MANUAL.md", "INTERFACE_REFERENCE.md", "OCTOMAP.md"})
+                         {"USER_MANUAL.md", "INTERFACE_REFERENCE.md", "OCTOMAP.md", "UDP_TELEMETRY_GENERIC.md"})
 
     def test_every_profile_stages_only_selected_complete_packages(self):
         for profile in LAYOUT["profiles"]:

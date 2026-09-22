@@ -32,4 +32,4 @@ class PackageVersionTests(unittest.TestCase):
 
     def test_device_config_version(self):
         root = Path(__file__).resolve().parents[1] / "EPGeneral_device_config"
-        self.assertEqual(ET.parse(root / "package.xml").getroot().findtext("version"), "0.1.4")
+        self.assertEqual(ET.parse(root / "package.xml").getroot().findtext("version"), "0.2.0")

@@ -1,0 +1,5 @@
+# Replace example identity and documentation IP before deployment.
+schema_version: 1
+device:
+  id: DEVICE_EXAMPLE
+  ip: 192.0.2.20

@@ -106,7 +106,8 @@ class NodeIsolationTests(unittest.TestCase):
             node._send = lambda message_type, sequence, level, payload: sent.append(payload)
             node._send_level(1)
         finally:
-            node.socket.close()
+            if node.socket is not None:
+                node.socket.close()
         self.assertTrue(sent[0]["global_pose"]["valid"])
         self.assertEqual(sent[0]["global_pose"]["x"], 1.0)
         self.assertEqual(sent[0]["vision_pose"], {"valid": False, "sample_age_seconds": None})
@@ -120,7 +121,8 @@ class NodeIsolationTests(unittest.TestCase):
         node = RosUdpTelemetryNode(_Rospy(), config)
         original_socket = node.socket
         try:
-            original_socket.close()
+            if original_socket is not None:
+                original_socket.close()
             node.socket = _Socket()
             node._send("telemetry", 1, 1, {"global_pose": {"valid": False}})
             self.assertEqual(node.level_stats[1]["sent_count"], 1)
@@ -153,7 +155,8 @@ class NodeIsolationTests(unittest.TestCase):
         first = threading.Thread(target=send_level)
         second = threading.Thread(target=send_level)
         try:
-            original_socket.close()
+            if original_socket is not None:
+                original_socket.close()
             node.socket = blocking_socket
             first.start()
             self.assertTrue(blocking_socket.first_send_entered.wait(1.0))

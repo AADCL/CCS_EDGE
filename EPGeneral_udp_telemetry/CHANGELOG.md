@@ -1,5 +1,13 @@
 # 更新记录
 
+## v0.4.0 - 2026-09-22
+
+- 配置 schema 2：通用来源模式、字段与单位映射、状态值映射、frame 校验、过期策略和有界缓存；兼容 schema 1。
+- file_status 支持可配置状态字段/成果相对路径，兼容旧 pgm_file；disabled 保留描述哈希。
+- 配置统一由 epgeneral_device_config 提供，新增显式 config_dir、离线/ROS 预检；修复 launch 默认覆盖 YAML 地址。
+- ROS 类型/字段预检先于运行资源创建，补充部分启动失败和关闭清理。
+- 保持线协议 schema 1、20/5/1 Hz 与现有 profile 描述哈希；新增配置、来源与生命周期回归测试。
+
 ## v0.3.1 - 2026-09-02
 
 - 将运行配置迁移至 `epgeneral_device_config`，UDP schema 与 descriptor 规则不变。
