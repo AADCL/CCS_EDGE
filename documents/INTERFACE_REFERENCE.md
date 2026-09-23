@@ -62,7 +62,7 @@ MQTT 的 `ros.state/battery` 使用 `package/Message` 动态加载消息类，`m
 
 UDP 的 ros_fields/value_status 加载具体消息并读取字段，topic_freshness 使用 AnyMsg 监测到达时间，不能判断 Bool 值。file_status 从状态 JSON 取得配置字段，在根目录检查 path_template（默认 map_id/map.pgm），不订阅示例 topic；disabled 不创建来源。默认诊断输出为 `/epgeneral_udp_telemetry/diagnostics`（diagnostic_msgs/DiagnosticArray），链路状态为 `/epgeneral_udp_telemetry/link/udp_tx`（std_msgs/Bool，latched），可按 launch 覆盖。
 
-视频输入类型仅为 `sensor_msgs/Image` 或 `sensor_msgs/CompressedImage`，输出无 ROS 消息。运行依赖 appsrc、videoconvert、x264enc、h264parse、mpegtsmux、srtsink。地面站作为 Caller 连接端侧 UDP 9000；YAML 延迟单位为 ms，FFmpeg SRT URL 的 latency 单位为微秒。
+视频输入支持 `sensor_msgs/Image`、`sensor_msgs/CompressedImage` 或 RTSP；输出流不使用 ROS 消息，状态另发布 JSON String。运行依赖 appsrc、videoconvert、x264enc、h264parse、mpegtsmux、srtsink。地面站作为 Caller 连接端侧 UDP 9000；YAML 延迟单位为 ms，FFmpeg SRT URL 的 latency 单位为微秒。
 
 <a id="documents-interface-reference-md-22-建图与坐标契约"></a>
 ### 2.2 建图与坐标契约
@@ -187,7 +187,7 @@ Ground-Air 输入 `/cloud_registered` 在 camera_init，预览需转换为 odom�
 
 后续表格按文件划分，键均为 YAML 完整路径；`[]` 表示列表元素。值栏“必填；示例”表示文件必须提供该值，并非加载器缺省。路径示例依 profile 而异；默认配置不能直接投入设备。每张表的参数修改位置就是该文件的实际运行副本，生效方式均为重启对应节点；身份变更需重启全部通信节点。
 
-`deployment.state`（字符串）、`deployment.enabled`（布尔）是可选说明元数据，缺省无元数据，加载器不据此启停。视频顶层 `enabled` 同样未被 C++ 读取。不要假定所有未知键都会被严格拒绝。
+`deployment.state` 为可选说明元数据。视频 0.2.0 的顶层 `enabled` 实际控制启停，并兼容旧 `deployment.enabled`，两者冲突时拒绝启动；其他包按各自加载器定义处理。视频已声明字段进行校验，不推定其他包采用相同规则。
 
 <a id="documents-interface-reference-md-4-deviceyaml"></a>
 ## 4. device.yaml
@@ -303,27 +303,27 @@ name/display_name/type/level 共同决定 SHA-256 descriptor_hash；source 与�
 <a id="documents-interface-reference-md-7-videoyaml"></a>
 ## 7. video.yaml
 
-以下默认值由 C++ 读取；修改后需重启视频节点，不能只重启地面站播放器。
+视频 0.2.0 统一由配置解析器校验；schema 2 必须显式选择输入模式。修改后重启。见 [通用化迁移说明](VIDEO_SRT_GENERIC.md)。
 
 | 键 | 类型 / 默认 | 定义与约束 |
 | --- | --- | --- |
 | `image_topic` | string；/camera/image_raw | 输入相机话题 |
 | `image_message_type` | string；sensor_msgs/Image | 仅支持 Image 或 CompressedImage |
-| `output_width` | int；640 | 输出像素宽度，正数；优先于 image_width |
-| `output_height` | int；480 | 输出像素高度，正数；优先于 image_height |
+| `output_width` | int；640 | 输出宽度 16..3840，偶数；优先于 image_width |
+| `output_height` | int；480 | 输出高度 16..2160，偶数；优先于 image_height |
 | `image_width` | int；640 | 兼容别名，仅 output_width 缺失时读取 |
 | `image_height` | int；480 | 兼容别名，仅 output_height 缺失时读取 |
 | `framerate` | int；30 | 输出帧率 Hz，1..120 |
 | `srt_bind_address` | string；0.0.0.0 | 本机 Listener 绑定地址 |
 | `srt_port` | int；9000 | UDP 端口，1..65535 |
 | `srt_latency_ms` | int；120 | SRT 延迟，20..8000 毫秒 |
-| `bitrate_kbps` | int；2000 | 编码码率，正 kbps |
+| `bitrate_kbps` | int；2000 | 编码码率 100..20000 kbps |
 | `rotation_degrees` | int；0 | SRT 编码前的视频旋转；仅允许 0 或 180，不改变输入 ROS 图像 |
-| `frame_timeout_seconds` | number；5.0 | 缺帧告警阈值，正秒数 |
-| `enabled` | bool；可选元数据 | 当前 C++ 不读取，不能据此禁用视频 |
+| `frame_timeout_seconds` | number；5.0 | 缺帧重建阈值 0.1..3600 秒；RTSP 缺省 8 秒 |
+| `enabled` | bool；true | false 时视频和相机入口成功退出，不加载运行依赖 |
 | `camera_model` | string；可选元数据 | profile 相机说明，当前 C++ 不读取 |
 | `deployment.state` | string；可选元数据 | 部署状态说明 |
-| `deployment.enabled` | bool；可选元数据 | 不控制启停，实际由脚本/launch 决定 |
+| `deployment.enabled` | bool；兼容旧格式 | 与 enabled 冲突时拒绝启动 |
 
 <a id="documents-interface-reference-md-8-map_streamyaml"></a>
 
@@ -334,6 +334,27 @@ UAV 补充字段：
 | `input_mode` | 输入模式；UAV 使用 rtsp，原 ROS 图像 launch 保留。 |
 | `rtsp_codec` | h264 或 h265，UAV 为 h265。 |
 | `rtsp_uri` | 真实 A8 RTSP 地址。 |
+
+
+| 键 | 类型 / 默认 | 定义与约束 |
+| --- | --- | --- |
+| `schema_version` | int；2 | 新配置显式模式；兼容 schema 1 |
+| `rtsp_uri_env` | string；可选 | URI 环境变量名，与 rtsp_uri 互斥；诊断输出脱敏 |
+| `rtsp_transport` | string；tcp | tcp 或 udp |
+| `rtsp_latency_ms` | int；100 | RTSP 缓冲 0..10000 毫秒 |
+| `runtime.status_topic` | string；~status | std_msgs/String JSON 状态，支持 {device_id} |
+| `runtime.reconnect_interval_seconds` | number；3.0 | 0.1..300 秒，运行中故障重建间隔 |
+| `runtime.decoder_preload` | list；[] | 绝对库路径；仅需要的平台配置 |
+| `capture.enabled` | bool；false | 仅 camera.launch 读取并启动驱动 |
+| `capture.package` | string | 驱动 ROS 包名 |
+| `capture.launch` | string | 驱动 launch 文件名 |
+| `capture.args` | mapping；{} | 标量 roslaunch 参数，不执行 shell |
+| `capture.arg_env` | mapping；{} | launch 参数名映射环境变量，非空环境值优先 |
+| `capture.args.color_width` / `capture.args.color_height` / `capture.args.color_fps` | int | Go2 RGB 输入尺寸、帧率 |
+| `capture.args.enable_color` / `capture.args.enable_depth` / `capture.args.enable_infra` / `capture.args.enable_infra1` / `capture.args.enable_infra2` | bool | Go2 图像流开关 |
+| `capture.args.enable_gyro` / `capture.args.enable_accel` / `capture.args.publish_tf` | bool | Go2 相机惯性/TF 开关 |
+| `capture.arg_env.serial_no` | string | Go2 为 CCS_D435_SERIAL，未设则自动选相机 |
+| `capture.args.camera_ip` / `capture.args.image_topic` | string | Ground-Air A8 驱动地址和输出话题 |
 
 ## 8. map_stream.yaml
 
@@ -664,14 +685,17 @@ UAV 补充字段：
 
 | launch / 参数 | 默认或要求 | 作用 |
 | --- | --- | --- |
-| 除 MQTT/UDP 外的业务主 launch：device_config_file | 共享目录/device.yaml | 唯一身份配置；MQTT/UDP 要求显式选择 |
+| 除 MQTT/UDP/视频外的业务主 launch：device_config_file | 共享目录/device.yaml | 唯一身份配置；MQTT/UDP/视频要求显式选择 |
 | epgeneral_mqtav.launch：config_dir | 空，须显式填写 | 同时加载 device.yaml 和 epgeneral_mqtav.yaml；兼容显式 config_file/device_config_file 文件对 |
 | epgeneral_mqtav.launch：log_dir | HOME/.ros/log/epgeneral_mqtav/设备ID | 耐久日志目录，可覆盖 |
 | epgeneral_udp_telemetry.launch：config_dir | 空，须显式选择 | 同时加载 device.yaml 与 udp_telemetry.yaml；与完整文件对互斥 |
 | epgeneral_udp_telemetry.launch：telemetry_config_file / device_config_file | 均为空 | 兼容显式完整文件对，不能只传其中一个 |
 | epgeneral_udp_telemetry.launch：destination_host / destination_port | 均为空 | 仅非空值覆盖 YAML，不再隐式覆盖目标 |
 | epgeneral_udp_telemetry.launch：link_status_topic / diagnostics_topic | 均为空 | 仅非空值覆盖 YAML runtime 输出话题 |
-| epgeneral_video_srt.launch / epgeneral_realsense_d435i_srt.launch：video_config_file | 共享目录/video.yaml | 视频配置；后者不会自动安装相机驱动 |
+| epgeneral_video_srt.launch / rtsp_srt.launch / epgeneral_realsense_d435i_srt.launch / camera.launch：config_dir | 空，须显式选择 | 同时读取 device.yaml/video.yaml，与完整文件对互斥 |
+| 同上：video_config_file / device_config_file | 均为空 | 兼容完整文件对 |
+| 同上：decoder_preload | 空 | 兼容覆盖；推荐 runtime.decoder_preload |
+| camera.launch：capture_args | 空 | 兼容参数 --capture-arg name:=value；新部署优先 YAML |
 | epgeneral_map_stream.launch：mapping_config_file | 共享目录/map_stream.yaml | 建图配置 |
 | epgeneral_map_stream.launch：log_dir | 空字符串 | 可选 map-stream 事件日志目录；设置后 FAST-LIO 与 PGM 日志进入 `sessions/<session_id>` 子目录 |
 | mapping_prerequisites.launch：extrinsics_file | Go2 calibration/go2_edu_02/extrinsics.yaml 绝对路径 | Go2 prerequisites 的外参文件，不通用于其他 profile |
@@ -702,7 +726,7 @@ Ground-Air 设备适配 launch 还提供：manual_mapping_control/relocalization
 | bringup.launch：`log_root` | /home/unitree/ccs_edge_ws/logs | MQTT 与重定位日志根目录 |
 | bringup.launch：`telemetry_namespace` | /qrd/QRD_002 | UDP link 与 diagnostics 话题前缀；Robot3 使用 /qrd/QRD_003 |
 | bringup.launch：`camera_serial` | 空字符串 | 仅该组合 launch 的 serial_no 参数；Robot2/Robot3 根脚本默认自动选择，可选 CCS_D435_SERIAL 原样传入，不能用此参数推断根脚本行为 |
-| bringup.launch：`color_fps` | 30 | RGB 帧率 Hz；Robot3 USB2 配置为 15 |
+| bringup.launch：`color_fps` | 空 | 空时使用 capture.args.color_fps；非空显式覆盖 |
 | mapping_fast_lio.launch / navigation_guard.launch：`lock_file` | /home/unitree/ccs_edge_ws/run/go2_stack.lock | 建图与导航共用的排他锁；必须在两条生命周期中一致 |
 | navigation.launch：`map_name` | 必填 | 原生定位和导航加载的地图名 |
 | navigation.launch：`map_root` | /home/unitree/ccs_edge_ws/maps/download | 下载地图根目录 |
@@ -1305,6 +1329,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/epgeneral_udp_telemetry/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/epgeneral_udp_telemetry/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/lio/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body_lio；coordinates=sensor |
@@ -1341,6 +1366,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/qrd/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/qrd/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/lio/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body_lio；coordinates=sensor |
@@ -1385,6 +1411,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/qrd/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/qrd/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@15；外部相机先就绪 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/lio/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body_lio；coordinates=sensor |
@@ -1429,6 +1456,8 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/agv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/agv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/a8_cam/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 1280×720@30；外部相机先就绪 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
+| `video.yaml: capture.args.image_topic` | `/a8_cam/image_raw` | sensor_msgs/Image |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=base_link |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=base_link |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/cloud_registered` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=camera_init；coordinates=map |
@@ -1468,6 +1497,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；外部相机先就绪 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body；coordinates=sensor |
@@ -1502,6 +1532,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | Gemini 336L 彩色输入；输出 640×360@30、2500 kbps；根脚本默认启动，可用 CCS_ENABLE_VIDEO=0 关闭 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body；coordinates=sensor |
@@ -1559,6 +1590,7 @@ UGV_003 专用导航 launch 固定 `TebLocalPlannerROS/max_vel_x=0.20`、`max_ve
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 | `video.yaml: image_topic` | `/camera/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；根脚本不启动视频 |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.stream.cloud.topic` | `/cloud_registered_body` | sensor_msgs/PointCloud2（message_type） | 接收；建图运行时预览；frame=body；coordinates=sensor |
@@ -1611,6 +1643,10 @@ rossrv md5 std_srvs/Trigger
 
 ### UAV / uav_001
 
+| 新增视频接口 | 话题 | 类型 |
+| --- | --- | --- |
+| `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
+
 | 配置字段 | 话题或服务 | 类型 |
 | --- | --- | --- |
 | `epgeneral_mqtav.yaml: ros.state.topic` | `/mavros/state` | mavros_msgs/State |
@@ -1640,7 +1676,7 @@ rossrv md5 std_srvs/Trigger
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/epgeneral_udp_telemetry/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/epgeneral_udp_telemetry/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
 
-RTSP launch 增加 `decoder_preload` 参数，仅 UAV ARM64 设置 libgomp 预加载路径。/ctrl_cmd/state 是整数 ROS 参数。完整边界见 [UAV 指南](devices/uav/DEPLOYMENT_GUIDE.md)。
+视频 runtime.decoder_preload 仅 UAV ARM64 配置 libgomp，launch 保留兼容覆盖参数。/ctrl_cmd/state 是整数 ROS 参数。完整边界见 [UAV 指南](devices/uav/DEPLOYMENT_GUIDE.md)。
 
 ## 可选可信区域（重定位包 0.5.0）
 

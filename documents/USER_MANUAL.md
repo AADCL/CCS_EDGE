@@ -428,7 +428,7 @@ roslaunch epgeneral_video_srt epgeneral_video_srt.launch \
 ffplay 'srt://192.168.50.120:9000?mode=caller&transtype=live&latency=120000'
 ~~~
 
-使用实际设备 IP。视频无画面时依次检查输入类型和帧、GStreamer 插件、UDP 9000、防火墙及 Caller 参数。UGV_003 使用 `/camera/color/image_raw` 和 `manage_ccs_video.sh`；因 Gemini 336L 倒置安装，该 profile 设置 `rotation_degrees: 180`，只旋转 SRT 输出。`video.yaml.enabled` 是说明字段，一键脚本是否启动视频由 `CCS_ENABLE_VIDEO` 控制。
+使用实际设备 IP。视频无画面时依次检查输入类型和帧、GStreamer 插件、UDP 9000、防火墙及 Caller 参数。UGV_003 使用 `/camera/color/image_raw` 和 `manage_ccs_video.sh`；因 Gemini 336L 倒置安装，该 profile 设置 `rotation_degrees: 180`，只旋转 SRT 输出。视频 0.2.0 的 `video.yaml.enabled` 是实际开关；`CCS_ENABLE_VIDEO` 仍控制部分设备脚本是否调用视频入口。输入模式、可选相机驱动和迁移步骤见 [通用视频说明](VIDEO_SRT_GENERIC.md)。
 
 <a id="documents-user-manual-md-55-epgeneral_map_stream"></a>
 ### 5.5 epgeneral_map_stream
@@ -709,7 +709,7 @@ ARM 控制并行度。核对所有 CCS 包 rospack find/readlink -f 都在本工
 | device.yaml | 唯一 ID、端侧 IP；平台同 ID 新记录，初始地图绑定为空 |
 | epgeneral_mqtav.yaml | Broker、状态/连接/电池/任务来源；QRD_002/QRD_003 周期 low_state 判断连接，锁存 Bool.data 表示 armed |
 | udp_telemetry.yaml | 正式 name/display_name/type/level 与平台严格哈希一致；source 真实类型/字段；pgm_file 是文件接口 |
-| video.yaml | 驱动实际 topic/type、分辨率/帧率、SRT 端口/码率；enabled 元数据不控制节点启停 |
+| video.yaml | 驱动实际 topic/type、分辨率/帧率、SRT 端口/码率；enabled 控制节点启停，capture 控制可选驱动入口 |
 | map_stream.yaml | 原始输入与预览区分；backend、标定、frame/coordinates、保存服务、PCD→PGM 路径、磁盘 |
 | relocalization.yaml | stages、地图文件名/下载根目录、initialpose/map/健康话题、TF 和持久状态 |
 | task_control.yaml | command/feedback/status、共享地图状态、action/odom/停车、reset/enable 类型、超时及急停文件 |

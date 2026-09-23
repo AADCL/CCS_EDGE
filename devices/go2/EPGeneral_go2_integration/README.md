@@ -1,6 +1,6 @@
 # EPGeneral GO2 Integration
 
-Version: 0.1.2. ROS package: `epgeneral_go2_integration`.
+Version: 0.1.3. ROS package: `epgeneral_go2_integration`.
 
 [User manual](../../../documents/USER_MANUAL.md#documents-user-manual-md) | [Interface reference](../../../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)
 
@@ -56,3 +56,7 @@ For Robot2, see the [deployment guide](../../../documents/devices/go2/DEPLOYMENT
 For Robot3, see the [deployment guide](../../../documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot3-deployment-md) and
 [validation record](../../../documents/devices/go2/DEPLOYMENT_GUIDE.md#deploy-go2-robot3-validation-md) for device-specific setup,
 observed results, and rollback instructions.
+
+## 0.1.3 camera configuration
+
+The optional camera uses `epgeneral_video_srt/camera.launch` with the selected profile config directory. Driver package, RGB settings and serial environment mapping live in shared `video.yaml`. Empty `camera_serial` / `color_fps` launch arguments preserve the YAML values; explicit values override capture args, and configured nonempty environment mappings take final precedence. Requires video 0.2.0 and device config 0.3.0. See [video migration](../../../documents/VIDEO_SRT_GENERIC.md).

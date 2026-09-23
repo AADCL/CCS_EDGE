@@ -10,7 +10,11 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   roscpp
   sensor_msgs
+  rospy
+  std_msgs
 )
+catkin_python_setup()
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED
   gstreamer-1.0
@@ -18,7 +22,7 @@ pkg_check_modules(GSTREAMER REQUIRED
 )
 
 catkin_package(
-  CATKIN_DEPENDS cv_bridge epgeneral_device_config image_transport roscpp sensor_msgs
+  CATKIN_DEPENDS cv_bridge epgeneral_device_config image_transport roscpp sensor_msgs rospy std_msgs
 )
 
 include_directories(
@@ -43,5 +47,5 @@ install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-catkin_install_python(PROGRAMS scripts/rtsp_srt_node.py
+catkin_install_python(PROGRAMS scripts/rtsp_srt_node.py scripts/video_srt_node.py scripts/video_camera_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

@@ -8,7 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <thread>
+#include <regex>
 #include <vector>
 
 #include <cv_bridge/cv_bridge.h>
@@ -19,58 +19,84 @@
 #include <ros/ros.h>
 #include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/Image.h>
+#include <std_msgs/String.h>
+#include <chrono>
+#include <cmath>
 
 class VideoSrtNode {
  public:
-  VideoSrtNode()
+  explicit VideoSrtNode(std::uint64_t reconnects)
       : nh_(), pnh_("~"), image_transport_(nh_), pipeline_(nullptr), appsrc_(nullptr), srt_sink_(nullptr),
-        main_loop_(nullptr), bus_watch_id_(0), sequence_(0), received_frame_(false),
-        shutting_down_(false) {
-    loadConfiguration();
-    gst_init(nullptr, nullptr);
-    validateGstreamerPlugins();
-    startPipeline();
-    if (image_message_type_ == "sensor_msgs/Image") {
-      image_subscriber_ = image_transport_.subscribe(
-          image_topic_, 1, &VideoSrtNode::imageCallback, this,
-          image_transport::TransportHints("raw"));
-    } else {
-      compressed_subscriber_ = nh_.subscribe(
-          image_topic_, 1, &VideoSrtNode::compressedImageCallback, this);
+        bus_(nullptr), sequence_(0), received_frame_(false),
+        shutting_down_(false), failed_(false), reconnects_(reconnects) {
+    try {
+      loadConfiguration();
+      gst_init(nullptr, nullptr);
+      validateGstreamerPlugins();
+      startPipeline();
+      pipeline_started_ = std::chrono::steady_clock::now();
+      last_frame_time_ = ros::WallTime::now();
+      status_publisher_ = pnh_.advertise<std_msgs::String>(
+          status_topic_[0] == '~' ? status_topic_.substr(1) : status_topic_, 1, true);
+      if (image_message_type_ == "sensor_msgs/Image") {
+        image_subscriber_ = image_transport_.subscribe(
+            image_topic_, 1, &VideoSrtNode::imageCallback, this,
+            image_transport::TransportHints("raw"));
+      } else {
+        compressed_subscriber_ = nh_.subscribe(
+            image_topic_, 1, &VideoSrtNode::compressedImageCallback, this);
+      }
+      frame_watchdog_ = nh_.createWallTimer(
+          ros::WallDuration(1.0), &VideoSrtNode::watchdogCallback, this);
+      ROS_INFO_STREAM("epgeneral_video_srt ready device_id=" << device_id_
+                      << " listener=srt://" << device_ip_ << ":" << srt_port_
+                      << " image_topic=" << image_topic_ << " image_message_type="
+                      << image_message_type_ << " output=" << output_width_ << "x"
+                      << output_height_ << " rotation=" << rotation_degrees_
+                      << "deg latency_ms=" << srt_latency_ms_);
+    } catch (...) {
+      shutdownPipeline();
+      throw;
     }
-    frame_watchdog_ = nh_.createWallTimer(
-        ros::WallDuration(1.0), &VideoSrtNode::watchdogCallback, this);
-    ROS_INFO_STREAM("epgeneral_video_srt ready device_id=" << device_id_
-                    << " listener=srt://" << device_ip_ << ":" << srt_port_
-                    << " image_topic=" << image_topic_ << " image_message_type="
-                    << image_message_type_ << " output=" << output_width_ << "x"
-                    << output_height_ << " rotation=" << rotation_degrees_
-                    << "deg latency_ms=" << srt_latency_ms_);
   }
 
-  ~VideoSrtNode() {
+  bool failed() {
+    GstMessage* message;
+    while (bus_ && (message = gst_bus_pop(bus_)) != nullptr) {
+      busMessage(bus_, message, this);
+      gst_message_unref(message);
+    }
+    return failed_;
+  }
+
+  ~VideoSrtNode() { shutdownPipeline(); }
+
+  void shutdownPipeline() {
     shutting_down_ = true;
+    frame_watchdog_.stop();
+    image_subscriber_.shutdown();
+    compressed_subscriber_.shutdown();
+    if (status_publisher_ && ros::ok()) {
+      failed_ = true;
+      watchdogCallback(ros::WallTimerEvent());
+    }
     if (appsrc_ != nullptr) gst_app_src_end_of_stream(GST_APP_SRC(appsrc_));
     if (pipeline_ != nullptr) gst_element_set_state(pipeline_, GST_STATE_NULL);
-    if (main_loop_ != nullptr) g_main_loop_quit(main_loop_);
-    if (glib_thread_.joinable()) glib_thread_.join();
-    if (bus_watch_id_ != 0) g_source_remove(bus_watch_id_);
+    if (bus_ != nullptr) gst_object_unref(bus_);
     if (appsrc_ != nullptr) gst_object_unref(appsrc_);
     if (srt_sink_ != nullptr) gst_object_unref(srt_sink_);
     if (pipeline_ != nullptr) gst_object_unref(pipeline_);
-    if (main_loop_ != nullptr) g_main_loop_unref(main_loop_);
     ROS_INFO("epgeneral_video_srt stopped");
   }
 
  private:
   void loadConfiguration() {
-    int schema_version = 0;
-    if (!nh_.getParam("/edge_device/schema_version", schema_version) || schema_version != 1)
-      throw std::runtime_error("/edge_device/schema_version must be 1");
-    if (!nh_.getParam("/edge_device/device/id", device_id_) || device_id_.empty())
-      throw std::runtime_error("/edge_device/device/id is required");
-    if (!nh_.getParam("/edge_device/device/ip", device_ip_) || !validIpAddress(device_ip_))
-      throw std::runtime_error("/edge_device/device/ip must be a valid IPv4 or IPv6 address");
+    if (!pnh_.getParam("device_id", device_id_) || !std::regex_match(device_id_, std::regex("[A-Za-z][A-Za-z0-9_-]*")))
+      throw std::runtime_error("private device_id is required; use the configured launcher");
+    if (!pnh_.getParam("device_ip", device_ip_) || !validIpAddress(device_ip_))
+      throw std::runtime_error("private device_ip must be a valid IP address");
+    pnh_.param<std::string>("status_topic", status_topic_, "~status");
+    if (status_topic_.empty()) throw std::runtime_error("status_topic is required");
     pnh_.param<std::string>("image_topic", image_topic_, "/camera/image_raw");
     pnh_.param<std::string>("image_message_type", image_message_type_, "sensor_msgs/Image");
     pnh_.param<std::string>("srt_bind_address", bind_address_, "0.0.0.0");
@@ -88,9 +114,9 @@ class VideoSrtNode {
         image_message_type_ != "sensor_msgs/CompressedImage")
       throw std::runtime_error("image_message_type must be sensor_msgs/Image or sensor_msgs/CompressedImage");
     if (!validIpAddress(bind_address_) || srt_port_ < 1 || srt_port_ > 65535 ||
-        srt_latency_ms_ < 20 || srt_latency_ms_ > 8000 || output_width_ < 1 ||
-        output_height_ < 1 || framerate_ < 1 || framerate_ > 120 ||
-        bitrate_kbps_ < 1 || frame_timeout_seconds_ <= 0.0)
+        srt_latency_ms_ < 20 || srt_latency_ms_ > 8000 || output_width_ < 16 || output_width_ > 3840 || output_width_ % 2 ||
+        output_height_ < 16 || output_height_ > 2160 || output_height_ % 2 || framerate_ < 1 || framerate_ > 120 ||
+        bitrate_kbps_ < 100 || bitrate_kbps_ > 20000 || !std::isfinite(frame_timeout_seconds_) || frame_timeout_seconds_ <= 0.0)
       throw std::runtime_error("video or SRT numeric configuration is out of range");
     if (rotation_degrees_ != 0 && rotation_degrees_ != 180)
       throw std::runtime_error("rotation_degrees must be 0 or 180");
@@ -107,8 +133,7 @@ class VideoSrtNode {
     std::string host = bind_address_;
     if (host.find(':') != std::string::npos) host = "[" + host + "]";
     return "srt://" + host + ":" + std::to_string(srt_port_) +
-           "?mode=listener&transtype=live&latency=" +
-           std::to_string(static_cast<long long>(srt_latency_ms_) * 1000LL);
+           "?mode=listener&transtype=live";
   }
 
   void validateGstreamerPlugins() const {
@@ -166,20 +191,20 @@ class VideoSrtNode {
     if (appsrc_ == nullptr) throw std::runtime_error("failed to locate GStreamer appsrc");
     srt_sink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "srt_output");
     if (srt_sink_ == nullptr) throw std::runtime_error("failed to locate GStreamer srtsink");
+    // GstSRTSink latency is milliseconds; avoid a second URI unit conversion.
+    g_object_set(G_OBJECT(srt_sink_), "latency", srt_latency_ms_, nullptr);
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(srt_sink_), "wait-for-connection"))
+      g_object_set(G_OBJECT(srt_sink_), "wait-for-connection", FALSE, nullptr);
     if (g_signal_lookup("caller-connecting", G_OBJECT_TYPE(srt_sink_)) != 0) {
       g_signal_connect(srt_sink_, "caller-connecting",
                        G_CALLBACK(&VideoSrtNode::callerConnecting), this);
     }
     g_signal_connect(srt_sink_, "caller-added", G_CALLBACK(&VideoSrtNode::callerAdded), this);
     g_signal_connect(srt_sink_, "caller-removed", G_CALLBACK(&VideoSrtNode::callerRemoved), this);
-    GstBus* bus = gst_element_get_bus(pipeline_);
-    bus_watch_id_ = gst_bus_add_watch(bus, &VideoSrtNode::busMessage, this);
-    gst_object_unref(bus);
-    main_loop_ = g_main_loop_new(nullptr, FALSE);
+    bus_ = gst_element_get_bus(pipeline_);
     const GstStateChangeReturn state_result = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
     if (state_result == GST_STATE_CHANGE_FAILURE)
       throw std::runtime_error("failed to start SRT Listener pipeline");
-    glib_thread_ = std::thread([this]() { g_main_loop_run(main_loop_); });
     ROS_INFO_STREAM("epgeneral_video_srt SRT listener bound to " << bind_address_ << ":" << srt_port_
                     << "; waiting for a ground-station caller");
   }
@@ -203,6 +228,14 @@ class VideoSrtNode {
   void pushFrame(const cv::Mat& input) {
     if (input.data == nullptr || input.rows < 1 || input.cols < 1 || input.type() != CV_8UC3)
       throw std::runtime_error("converted frame must be non-empty BGR8");
+    const auto now = std::chrono::steady_clock::now();
+    last_frame_time_ = ros::WallTime::now();
+    received_frame_ = true;
+    const auto period = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(1.0 / framerate_));
+    if (sequence_ && now < next_frame_due_) return;
+    next_frame_due_ = sequence_ ? next_frame_due_ + period : now + period;
+    if (next_frame_due_ < now) next_frame_due_ = now + period;
     std::vector<std::uint8_t> frame(static_cast<std::size_t>(output_width_) * output_height_ * 3);
     for (int y = 0; y < output_height_; ++y) {
       const std::uint8_t* source_row = input.ptr<std::uint8_t>(y * input.rows / output_height_);
@@ -216,7 +249,8 @@ class VideoSrtNode {
     GstBuffer* buffer = gst_buffer_new_allocate(nullptr, frame.size(), nullptr);
     gst_buffer_fill(buffer, 0, frame.data(), frame.size());
     const GstClockTime duration = gst_util_uint64_scale_int(1, GST_SECOND, framerate_);
-    GST_BUFFER_PTS(buffer) = sequence_ * duration;
+    GST_BUFFER_PTS(buffer) = static_cast<GstClockTime>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(now - pipeline_started_).count());
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
     ++sequence_;
@@ -229,10 +263,19 @@ class VideoSrtNode {
   }
 
   void watchdogCallback(const ros::WallTimerEvent&) {
-    if (!received_frame_)
-      ROS_WARN_THROTTLE(5.0, "epgeneral_video_srt is waiting for camera frames on %s", image_topic_.c_str());
-    else if ((ros::WallTime::now() - last_frame_time_).toSec() > frame_timeout_seconds_)
-      ROS_ERROR_THROTTLE(5.0, "epgeneral_video_srt camera frames have stopped");
+    const double age = (ros::WallTime::now() - last_frame_time_).toSec();
+    if (age > frame_timeout_seconds_) failed_ = true;
+    std_msgs::String status;
+    std::ostringstream value;
+    // Identity and input mode have already been validated by the shared launcher.
+    value << "{\"device_id\":\"" << device_id_ << "\",\"input_mode\":\""
+          << (image_message_type_ == "sensor_msgs/Image" ? "ros_image" : "ros_compressed")
+          << "\",\"ready\":" << (received_frame_ && !failed_ ? "true" : "false")
+          << ",\"frames\":" << sequence_ << ",\"frame_age\":" << age
+          << ",\"reconnects\":" << reconnects_
+          << ",\"error\":\"" << (failed_ ? "input_or_pipeline_unavailable" : "") << "\"}";
+    status.data = value.str();
+    status_publisher_.publish(status);
   }
 
   static gboolean busMessage(GstBus*, GstMessage* message, gpointer user_data) {
@@ -243,12 +286,15 @@ class VideoSrtNode {
       if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_ERROR) {
         gst_message_parse_error(message, &error, &debug);
         ROS_ERROR("epgeneral_video_srt pipeline error: %s", error->message);
+        node->failed_ = true;
       } else {
         gst_message_parse_warning(message, &error, &debug);
         ROS_WARN("epgeneral_video_srt pipeline warning: %s", error->message);
       }
       g_clear_error(&error);
       g_free(debug);
+    } else if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_EOS) {
+      node->failed_ = true;
     } else if (GST_MESSAGE_TYPE(message) == GST_MESSAGE_STATE_CHANGED &&
                GST_MESSAGE_SRC(message) == GST_OBJECT(node->pipeline_)) {
       GstState old_state, new_state, pending;
@@ -284,6 +330,9 @@ class VideoSrtNode {
   image_transport::Subscriber image_subscriber_;
   ros::Subscriber compressed_subscriber_;
   ros::WallTimer frame_watchdog_;
+  ros::Publisher status_publisher_;
+  std::string status_topic_;
+  std::chrono::steady_clock::time_point pipeline_started_, next_frame_due_;
   std::string device_id_, device_ip_, image_topic_, image_message_type_, bind_address_;
   int srt_port_, srt_latency_ms_, output_width_, output_height_, framerate_, bitrate_kbps_;
   int rotation_degrees_;
@@ -291,25 +340,40 @@ class VideoSrtNode {
   GstElement* pipeline_;
   GstElement* appsrc_;
   GstElement* srt_sink_;
-  GMainLoop* main_loop_;
-  guint bus_watch_id_;
-  std::thread glib_thread_;
+  GstBus* bus_;
   std::mutex push_mutex_;
   std::uint64_t sequence_;
   ros::WallTime last_frame_time_;
-  std::atomic<bool> received_frame_, shutting_down_;
+  std::atomic<bool> received_frame_, shutting_down_, failed_;
+  std::uint64_t reconnects_;
 };
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "epgeneral_video_srt");
-  try {
-    VideoSrtNode node;
-    ros::spin();
-    return 0;
-  } catch (const std::exception& error) {
-    std::fprintf(stderr, "epgeneral_video_srt startup failed: %s\n", error.what());
-    std::fflush(stderr);
-    ROS_FATAL("epgeneral_video_srt startup failed: %s", error.what());
-    return 1;
+  ros::NodeHandle private_node("~");
+  double reconnect_interval = 3.0;
+  private_node.param("reconnect_interval_seconds", reconnect_interval, 3.0);
+  if (!std::isfinite(reconnect_interval) || reconnect_interval < 0.1 || reconnect_interval > 300)
+    return 2;
+  std::uint64_t reconnects = 0;
+  while (ros::ok()) {
+    try {
+      VideoSrtNode node(reconnects);
+      ros::WallRate rate(100);
+      while (ros::ok() && !node.failed()) {
+        ros::spinOnce();
+        rate.sleep();
+      }
+    } catch (const std::exception& error) {
+      ROS_FATAL("epgeneral_video_srt startup failed: %s", error.what());
+      return 1;
+    }
+    if (!ros::ok()) break;
+    ++reconnects;
+    const auto deadline = std::chrono::steady_clock::now() +
+        std::chrono::duration<double>(reconnect_interval);
+    while (ros::ok() && std::chrono::steady_clock::now() < deadline)
+      ros::WallDuration(0.1).sleep();
   }
+  return 0;
 }

@@ -5,7 +5,7 @@
   <arg name="log_root" default="/home/unitree/ccs_edge_ws/logs"/>
   <arg name="telemetry_namespace" default="/qrd/QRD_002"/>
   <arg name="camera_serial" default=""/>
-  <arg name="color_fps" default="30"/>
+  <arg name="color_fps" default=""/>
 
   <include file="$(find livox_ros_driver2)/launch_ROS1/msg_MID360.launch"/>
   <include file="$(find go2_control)/launch/control.launch">
@@ -26,20 +26,9 @@
     <arg name="link_status_topic" value="$(arg telemetry_namespace)/link/udp_tx"/>
     <arg name="diagnostics_topic" value="$(arg telemetry_namespace)/diagnostics"/>
   </include>
-  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
-    <arg name="device_type" value="d435i"/>
-    <arg name="serial_no" value="$(arg camera_serial)"/>
-    <arg name="enable_color" value="true"/>
-    <arg name="color_width" value="640"/>
-    <arg name="color_height" value="480"/>
-    <arg name="color_fps" value="$(arg color_fps)"/>
-    <arg name="enable_depth" value="false"/>
-    <arg name="enable_infra" value="false"/>
-    <arg name="enable_infra1" value="false"/>
-    <arg name="enable_infra2" value="false"/>
-    <arg name="enable_gyro" value="false"/>
-    <arg name="enable_accel" value="false"/>
-    <arg name="publish_tf" value="false"/>
+  <include file="$(find epgeneral_video_srt)/launch/camera.launch">
+    <arg name="config_dir" value="$(arg profile_dir)"/>
+    <arg name="capture_args" value="--capture-arg serial_no:=$(arg camera_serial) --capture-arg color_fps:=$(arg color_fps)"/>
   </include>
   <include file="$(find epgeneral_video_srt)/launch/epgeneral_realsense_d435i_srt.launch">
     <arg name="video_config_file" value="$(arg profile_dir)/video.yaml"/>

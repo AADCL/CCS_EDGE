@@ -9,7 +9,6 @@ NTP_SERVER="${CCS_NTP_SERVER:-${GROUND_STATION_IP}}"
 ROS_IP_VALUE="${CCS_ROS_IP:-192.168.50.111}"
 NETWORK_INTERFACE="${CCS_GO2_NETWORK_INTERFACE:-go2dds}"
 USE_REAL_SDK="${CCS_GO2_USE_REAL_SDK:-true}"
-CAMERA_SERIAL="${CCS_D435_SERIAL:-}"
 READINESS="${WORKSPACE}/scripts/ccs_ros_readiness.py"
 STARTUP_LOG=""
 STATE_DIR="${CCS_EDGE_STATE_DIR:-${WORKSPACE}/run/managed}"
@@ -233,6 +232,7 @@ if [[ "${USE_REAL_SDK}" == true ]]; then
 fi
 run_quiet python3 "${WORKSPACE}/scripts/ccs_sntp_sync.py" --server "${NTP_SERVER}" --retries 2 --max-offset 5 || fail "Ground-station time check failed; synchronize before starting."
 run_quiet python3 -c 'import yaml, msgpack, paho.mqtt.client' || fail "CCS Python dependencies are missing."
+run_quiet rosrun epgeneral_video_srt video_srt_node.py --config-dir "${PROFILE_CONFIG_DIR}" --check-runtime --check-camera || fail "Video configuration or camera launch preflight failed."
 gst-inspect-1.0 srtsink >/dev/null 2>&1 || fail "GStreamer SRT plugin is missing."
 gst-inspect-1.0 x264enc >/dev/null 2>&1 || fail "GStreamer x264 plugin is missing."
 
@@ -295,14 +295,7 @@ if [[ "${CHECK_ONLY}" != true && "${USE_REAL_SDK}" == true ]]; then
   wait_for_node /go2_velocity_shaper "${PIDS[1]}" || fail "GO2 velocity shaper is unavailable."
   run_quiet python3 "${READINESS}" disabled --timeout 20 --max-age 3 || fail "Chassis did not start disabled with fresh DDS state; inspect ${LOG_DIR}/control.log."
 fi
-camera_args=(
-  realsense2_camera rs_camera.launch enable_color:=true
-  color_width:=640 color_height:=480 color_fps:=30 enable_depth:=false enable_infra:=false
-  enable_infra1:=false enable_infra2:=false enable_gyro:=false enable_accel:=false publish_tf:=false
-)
-if [[ -n "${CAMERA_SERIAL}" ]]; then
-  camera_args+=("serial_no:=${CAMERA_SERIAL}")
-fi
+camera_args=(epgeneral_video_srt camera.launch "config_dir:=${PROFILE_CONFIG_DIR}")
 start_launch 2 --defer-ready "${camera_args[@]}"
 if [[ "${CHECK_ONLY}" != true ]]; then
   run_quiet python3 "${READINESS}" camera --timeout 30 --max-age 3 || \

@@ -42,7 +42,7 @@ class ScoutMiniProfileTests(unittest.TestCase):
         self.assertIn("ros_executable_exists scout_base scout_base_node", script)
         self.assertIn("ros_executable_exists livox_ros_driver2 livox_ros_driver2_node", script)
         for node in (
-            "scout_livox_base.launch", "D435I.launch", "epgeneral_mqtav",
+            "scout_livox_base.launch", "epgeneral_video_srt camera.launch", "epgeneral_mqtav",
             "epgeneral_udp_telemetry", "epgeneral_video_srt", "epgeneral_map_stream",
             "epgeneral_relocalization", "scout_task_control.launch",
         ):

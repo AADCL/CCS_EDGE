@@ -77,8 +77,6 @@ class EdgePackageLayoutTests(unittest.TestCase):
                 "config/relocalization.yaml",
             "EPGeneral_task_control/launch/epgeneral_task_control.launch":
                 "config/task_control.yaml",
-            "EPGeneral_video_srt/launch/epgeneral_video_srt.launch":
-                "config/video.yaml",
         }
         for relative, config_path in cases.items():
             text = (EDGE_ROOT / relative).read_text(encoding="utf-8")

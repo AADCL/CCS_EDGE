@@ -1,0 +1,10 @@
+<launch>
+  <!-- Explicit deployment selection; legacy paired file arguments remain valid. -->
+  <arg name="capture_args" default="" />
+  <arg name="config_dir" default="" />
+  <arg name="device_config_file" default="" />
+  <arg name="video_config_file" default="" />
+  <arg name="decoder_preload" default="" />
+  <node pkg="epgeneral_video_srt" type="video_camera_node.py" name="epgeneral_video_camera" output="screen"
+        args="$(arg capture_args) --config-dir &quot;$(arg config_dir)&quot; --video-config-file &quot;$(arg video_config_file)&quot; --device-config-file &quot;$(arg device_config_file)&quot; --decoder-preload &quot;$(arg decoder_preload)&quot;" />
+</launch>
