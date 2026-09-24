@@ -18,7 +18,7 @@ SHUTDOWN_STARTED=false
 
 LAUNCH_NAMES=(scout_livox d435i mqtav udp_telemetry video_srt map_stream relocalization task_control)
 NODE_NAMES=(/scout_base_node /camera/realsense2_camera /epgeneral_mqtav /epgeneral_udp_telemetry /epgeneral_video_srt /epgeneral_map_stream /epgeneral_relocalization /epgeneral_task_control)
-EXPECTED_COMMANDS=(scout_livox_base.launch D435I.launch epgeneral_mqtav epgeneral_udp_telemetry epgeneral_video_srt epgeneral_map_stream epgeneral_relocalization scout_task_control.launch)
+EXPECTED_COMMANDS=(scout_livox_base.launch camera.launch epgeneral_mqtav epgeneral_udp_telemetry epgeneral_video_srt epgeneral_map_stream epgeneral_relocalization scout_task_control.launch)
 MANAGED=(false false false false false false false false)
 
 mkdir -p "${LOG_DIR}" "${PID_DIR}"
@@ -159,7 +159,7 @@ start_launch() {
 }
 
 start_launch 0 /scout_base_node scout_system_bringup scout_livox_base.launch
-start_launch 1 /camera/realsense2_camera scout_system_bringup D435I.launch
+start_launch 1 /camera/realsense2_camera epgeneral_video_srt camera.launch config_dir:="${PROFILE_CONFIG_DIR}"
 wait_for_topic /scout_status || fail "未发现 /scout_status"
 wait_for_topic /BMS_status || fail "未发现 /BMS_status"
 wait_for_topic /camera/color/image_raw || fail "未发现 /camera/color/image_raw"

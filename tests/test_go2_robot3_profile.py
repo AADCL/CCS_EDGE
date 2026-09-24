@@ -67,16 +67,18 @@ class Go2Robot3ProfileTests(unittest.TestCase):
         self.assertEqual([video[key] for key in ("output_width", "output_height", "framerate",
                          "srt_port", "srt_latency_ms", "bitrate_kbps")], [640, 480, 15, 9000, 120, 2500])
         script = (PROFILE / "start_ccs_edge_dev.sh").read_text(encoding="utf-8")
-        self.assertIn('CAMERA_SERIAL="${CCS_D435_SERIAL:-}"', script)
-        self.assertIn('if [[ -n "${CAMERA_SERIAL}" ]]', script)
-        self.assertIn('camera_args+=("serial_no:=${CAMERA_SERIAL}")', script)
+        capture = config("video")["capture"]
+        self.assertEqual(capture["package"], "realsense2_camera")
+        self.assertEqual(capture["arg_env"], {"serial_no": "CCS_D435_SERIAL"})
+        self.assertEqual(capture["args"]["color_fps"], 15)
+        self.assertEqual(capture["args"]["color_width"], 640)
+        self.assertEqual(capture["args"]["color_height"], 480)
+        for name in ("enable_depth", "enable_infra", "enable_infra1", "enable_infra2", "enable_gyro", "enable_accel", "publish_tf"):
+            self.assertFalse(capture["args"][name])
+        self.assertIn('camera_args=(epgeneral_video_srt camera.launch "config_dir:=${PROFILE_CONFIG_DIR}")', script)
         self.assertNotIn("device_type:=d435i", script)
         self.assertNotIn('serial_no:="_${CAMERA_SERIAL}"', script)
-        for argument in ("color_width:=640", "color_height:=480", "color_fps:=15",
-                         "enable_depth:=false", "enable_infra:=false", "enable_infra1:=false",
-                         "enable_infra2:=false", "enable_gyro:=false", "enable_accel:=false",
-                         "publish_tf:=false"):
-            self.assertIn(argument, script)
+
 
     def test_camera_readiness_precedes_ready_message_and_srt(self):
         script = (PROFILE / "start_ccs_edge_dev.sh").read_text(encoding="utf-8")

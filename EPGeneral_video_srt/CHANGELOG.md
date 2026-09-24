@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0] - 2026-09-23
+
+- Unified ROS Image, CompressedImage and RTSP inputs under explicit shared device/video configuration.
+- Added validated schema 2, effective disable switches, redacted preflight, configurable status and reconnect behavior.
+- Moved optional camera launch arguments and decoder preload into shared profiles; retained legacy launch aliases.
+- Removed global device identity parameters and fixed GStreamer SRT latency to use its millisecond property.
+- Added monotonic ROS frame pacing/timestamps, bounded pipeline queues and clean pipeline recovery.
+- Added generic templates, migration documentation and configuration/runtime regression coverage.
+
 ## [0.1.2] - 2026-09-16
 
 - Added an optional, validated 180-degree rotation stage before SRT encoding.

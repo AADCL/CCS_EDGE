@@ -15,7 +15,7 @@ class EdgeVideoConfigTests(unittest.TestCase):
     def test_package_identity_and_patch_version(self):
         manifest = ET.parse(PACKAGE / "package.xml").getroot()
         self.assertEqual(manifest.findtext("name"), "epgeneral_video_srt")
-        self.assertEqual(manifest.findtext("version"), "0.1.2")
+        self.assertEqual(manifest.findtext("version"), "0.2.0")
 
     def test_default_srt_listener_contract(self):
         config = yaml.safe_load(
@@ -30,10 +30,10 @@ class EdgeVideoConfigTests(unittest.TestCase):
         launch = (
             PACKAGE / 'launch/epgeneral_video_srt.launch'
         ).read_text(encoding="utf-8")
-        self.assertIn(
-            "$(find epgeneral_device_config)/config/device.yaml", launch)
-        self.assertIn(
-            "$(find epgeneral_device_config)/config/video.yaml", launch)
+        arguments = {a.attrib["name"]: a.attrib.get("default") for a in ET.fromstring(launch).findall("arg")}
+        for name in ("config_dir", "device_config_file", "video_config_file"):
+            self.assertEqual(arguments[name], "")
+        self.assertIn("video_srt_node.py", launch)
         self.assertIn('pkg="epgeneral_video_srt"', launch)
         self.assertFalse((PACKAGE / "config").exists())
 

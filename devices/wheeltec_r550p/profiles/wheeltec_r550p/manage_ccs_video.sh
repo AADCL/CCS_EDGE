@@ -65,7 +65,7 @@ start_video() {
       rostopic type "${COLOR_TOPIC}" >/dev/null 2>&1; then
     camera_external=true
   elif ! pid_running "${PID_DIR}/camera.pid"; then
-    setsid roslaunch wheeltec_system_bringup wheeltec_orbbec336l.launch \
+    setsid roslaunch epgeneral_video_srt camera.launch config_dir:="${PROFILE_CONFIG_DIR}" \
       >"${LOG_DIR}/camera.log" 2>&1 </dev/null &
     printf '%s\n' "$!" >"${PID_DIR}/camera.pid"
     started+=(camera)

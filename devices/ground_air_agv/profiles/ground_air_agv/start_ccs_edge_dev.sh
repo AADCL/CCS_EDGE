@@ -188,8 +188,8 @@ start_launch 4 /epgeneral_map_stream epgeneral_map_stream epgeneral_map_stream.l
   device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml"
 
 camera_started=false
-if start_optional_launch 5 /a8_mini_camera a8_mini_camera a8_mini_camera.launch \
-  camera_ip:=192.168.144.25 image_topic:=/a8_cam/image_raw; then
+if start_optional_launch 5 /a8_mini_camera epgeneral_video_srt camera.launch \
+  config_dir:="${PROFILE_CONFIG_DIR}"; then
   camera_started=true
 fi
 if [[ "${camera_started}" == true ]] && wait_for_topic /a8_cam/image_raw && wait_for_message /a8_cam/image_raw 30; then
