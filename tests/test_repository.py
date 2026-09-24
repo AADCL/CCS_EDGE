@@ -13,8 +13,8 @@ class RepositoryTests(unittest.TestCase):
     def test_layout_packages_profiles_and_static_files(self):
         packages = LAYOUT["common_packages"] + list(LAYOUT["special_packages"])
         manifests = [package_path(p) / "package.xml" for p in packages]
-        self.assertEqual(len(manifests), 10)
-        self.assertEqual(len({ET.parse(p).findtext("name") for p in manifests}), 10)
+        self.assertEqual(len(manifests), 11)
+        self.assertEqual(len({ET.parse(p).findtext("name") for p in manifests}), 11)
         self.assertEqual(len(LAYOUT["profiles"]), 8)
         for p in ROOT.rglob("*"):
             if ".git" in p.parts or "__pycache__" in p.parts or not p.is_file():
@@ -31,8 +31,11 @@ class RepositoryTests(unittest.TestCase):
     def test_two_device_documents_and_historical_coverage(self):
         for typ in {v["device_type"] for v in LAYOUT["profiles"].values()}:
             folder = ROOT / "documents/devices" / typ
+            expected = {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"}
+            if typ == "wheeltec_r550p":
+                expected.add("UGV004_FIX_20260924.md")
             self.assertEqual({p.name for p in folder.rglob("*.md")},
-                             {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"})
+                             expected)
         for profile, definition in LAYOUT["profiles"].items():
             identity = yaml.safe_load((profile_path(profile)/"config/device.yaml").read_text())["device"]["id"]
             record = ROOT / "documents/devices" / definition["device_type"] / "DEPLOYMENT_RECORD.md"
@@ -53,8 +56,8 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(args["profile_config_dir"]["default"],
                          "$(arg workspace)/config/uav_001")
         serialized = ET.tostring(launch, encoding="unicode")
-        for name in ("device.yaml", "epgeneral_mqtav.yaml", "udp_telemetry.yaml",
-                     "video.yaml", "map_stream.yaml", "relocalization.yaml",
+        self.assertEqual(serialized.count('config_dir" value="$(find epgeneral_device_config)/config"'), 3)
+        for name in ("device.yaml", "map_stream.yaml", "relocalization.yaml",
                      "task_control.yaml"):
             self.assertIn("$(arg profile_config_dir)/" + name, serialized)
 
@@ -90,5 +93,6 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn("documents/devices/ground_air_agv/", text)
         ugv3 = yaml.safe_load((profile_path("wheeltec_r550p")/"config/task_control.yaml").read_text())
         ugv4 = yaml.safe_load((profile_path("wheeltec_r550p_02")/"config/task_control.yaml").read_text())
-        self.assertEqual(ugv3["adapter"]["navigation_launch_file"], "wheeltec_ccs_2d_navigation.launch")
+        self.assertEqual(ugv3["adapter"]["navigation_launch_package"], "epgeneral_wheeltec_integration")
+        self.assertEqual(ugv3["adapter"]["navigation_launch_file"], "navigation.launch")
         self.assertEqual(ugv4["adapter"]["navigation_launch_file"], "wheeltec_ccs_2d_navigation_v51.launch")

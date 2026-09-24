@@ -539,6 +539,7 @@ network/storage/ros/tf_stability 结构必填。stages 仅接受程序可调用�
 | `network.max_datagram_bytes` | int；必填，示例 1400 | 512..65507 |
 | `trusted_regions.enabled` | bool；可选，默认 true | 接收可信区域开关，关闭不影响定位 |
 | `trusted_regions.root` | string；可选，默认 ~/.ros/ccs_edge_dev/trusted_regions | 区域 XML 保存根目录 |
+| `trusted_regions.apply_to_ndt` | bool；可选，默认 false | 将可信区域同步给 NDT 定位器 |
 | `storage.map_root` | string；必填 | 下载地图可写根目录，需与任务及遥测一致 |
 | `storage.pcd_filename` | string；默认 public_map.pcd | 仅 public_map.pcd/cloud_map.pcd |
 | `storage.active_map_state_file` | string；默认 ~/.ros/ccs_edge_dev/state/relocalization.json | 活动地图状态；Ground-Air 指向 CCS run 目录 |
@@ -546,6 +547,10 @@ network/storage/ros/tf_stability 结构必填。stages 仅接受程序可调用�
 | `storage.download_timeout_seconds` | number；必填，示例 300 | 正秒数 |
 | `ros.map_frame` | string；必填，示例 map | 定位地图坐标系 |
 | `ros.odom_frame` | string；必填，示例 odom | 本地里程计坐标系 |
+| `ros.base_frame` | string；可选，默认 base_link | 新鲜 TF 链检查的车体坐标系 |
+| `ros.require_fresh_tf` | bool；可选，默认 false | 定位成功前要求 map 到 odom 与车体 TF 均新鲜 |
+| `ros.algorithm_lock_file` | string；可选 | 建图与定位算法的进程间所有权锁文件 |
+| `ros.navigation_guard_file` | string；可选 | 导航与定位阶段共享的互斥锁文件 |
 | `ros.initial_pose_topic` | string；必填，示例 /initialpose | 初始位姿输出 |
 | `ros.localization_health_topic` | string；默认空 | 可选定位健康 Bool 话题；配置后必须为 true 且数据新鲜，TF 才可判定成功 |
 | `ros.localization_health_timeout_seconds` | number；默认 tf_stability.timeout_seconds | 定位健康样本最大年龄，必须为正数 |
@@ -556,6 +561,9 @@ network/storage/ros/tf_stability 结构必填。stages 仅接受程序可调用�
 | `ros.stages[].package` | string；必填 | ROS 包名 |
 | `ros.stages[].launch` | string；必填 | launch 文件名 |
 | `ros.stages[].args` | string[]；默认 [] | 每元素一个 launch 参数，可用本节模板 |
+| `ros.stages[].runtime_sandbox.workspace` | string；可选 | 阶段运行时隔离工作空间 |
+| `ros.stages[].runtime_sandbox.bindings[].source` | string；可选 | 隔离环境中的源路径 |
+| `ros.stages[].runtime_sandbox.bindings[].target` | string；可选 | 映射到原生工作空间的目标路径 |
 | `ros.stages[].ros_package_path_prepend` | string；可选，无缺省覆盖 | 子进程 ROS_PACKAGE_PATH 前置目录，可用模板 |
 | `ros.stages[].ros_package_path_exclude` | string[]；默认 [] | 从子进程环境排除指定绝对路径 |
 | `ros.stages[].cmake_prefix_path_exclude` | string[]；默认 [] | 排除子进程 CMAKE_PREFIX_PATH 指定绝对路径 |
@@ -593,6 +601,7 @@ adapter 整段可省略，此时仅运行通用协调器；提供非空 adapter 
 | `timeouts.ack_cache_seconds` | number；必填，示例 60 | >=1 秒，ACK 幂等缓存 |
 | `timeouts.transfer_seconds` | number；必填，示例 10 | >=0.1 秒，任务传输超时 |
 | `timeouts.adapter_feedback_seconds` | number；必填，示例 2 | >=0.1 秒，适配器反馈阈值 |
+| `timeouts.preparation_retry_on_failure` | bool；可选，默认 true | 准备失败后是否自动重试 |
 | `timeouts.execution_feedback_seconds` | number；必填，示例 5 | >=0.1 秒，执行反馈阈值 |
 | `timeouts.preparation_retry_seconds` | number；必填，示例 5 | >=0.5 秒，准备重试 |
 | `timeouts.utc_tolerance_seconds` | number；必填，示例 2 | >=0.01 秒，UTC 误差容忍 |
@@ -610,14 +619,20 @@ adapter 整段可省略，此时仅运行通用协调器；提供非空 adapter 
 | `adapter.odom_topic` | string；条件必填 | 适配器位姿、进度反馈和新鲜度使用的 nav_msgs/Odometry 输入 |
 | `adapter.navigation_odom_topic` | string；可选 | 受管导航 launch 的速度里程计输入；缺省回退到 adapter.odom_topic，UGV_003 必须显式为 /odom |
 | `adapter.zero_velocity_topic` | string；条件必填，示例 /cmd_vel | geometry_msgs/Twist 停车话题 |
-| `adapter.navigation_cmd_vel_topic` | string；可选 | move_base 的速度输出；UGV_003 为 /nav_cmd_vel |
+| `adapter.navigation_cmd_vel_topic` | string；可选 | move_base 的速度输出；UGV_003 为 /wheeltec_driver/cmd_vel |
 | `adapter.navigation_log_directory` | string；可选 | 受管导航 stdout/stderr 日志目录；失败消息附退出码、摘要和路径 |
+| `adapter.navigation_guard_file` | string；可选 | 原生导航进程所有权锁文件 |
 | `adapter.navigation_startup_timeout_seconds` | number；条件必填，示例 25 | 正秒数 |
 | `adapter.waypoint_timeout_seconds` | number；条件必填，示例 300 | 正秒数，单航点执行 |
 | `adapter.pose_timeout_seconds` | number；条件必填，示例 2 | 正秒数，位姿新鲜度 |
+| `adapter.base_frame` | string；可选，默认 base_link | 车体 TF 检查坐标系 |
+| `adapter.require_fresh_tf` | bool；可选，默认 false | 准备导航前要求 TF 链新鲜 |
+| `adapter.localization_health_topic` | string；可选 | 定位健康状态 Bool 话题 |
 | `adapter.zero_velocity_hz` | number；条件必填，示例 20 | 正 Hz，停车消息频率 |
 | `adapter.zero_velocity_count` | int；条件必填，示例 10 | >=1，停车消息次数 |
 | `adapter.navigation_management` | enum；默认 managed | managed 启停导航进程；attach 复用重定位持有的导航栈，Go2 native 使用 attach |
+| `adapter.native_map.enabled` | bool；可选，默认 false | 启用原生地图导航就绪检查 |
+| `adapter.native_map.readiness_file` | string；native_map 启用时必填 | 原生导航地图就绪状态文件 |
 | `adapter.auto_arm_on_schedule` | bool；默认 false | 调度时校验定位并调用控制使能；启用时必须同时启用 auto_disarm_on_terminal |
 | `adapter.auto_disarm_on_terminal` | bool；默认 false | 任务终态调用控制禁用，并等待真实禁用状态确认 |
 | `adapter.emergency_stop_state_file` | string；自动控制时必填 | 持久化急停闭锁文件；Go2 native 位于 CCS 工作空间 run/state/go2_task_safety.json |
@@ -633,6 +648,9 @@ adapter 整段可省略，此时仅运行通用协调器；提供非空 adapter 
 | `adapter.control_service_timeout_seconds` | number；自动控制时必填，示例 5 | >=0.01 秒，控制服务等待与调用超时 |
 | `adapter.control_state_timeout_seconds` | number；自动控制时必填，示例 3 | >=0.01 秒，控制状态与健康输入的新鲜度及确认阈值 |
 | `adapter.control_authority` | mapping；可选 | 启动 Wheeltec 控制权协调器；提供时下列接口键全部必填 |
+| `adapter.control_authority.safety_gate_enabled` | bool；可选 | 原生安全门是否接管速度输出 |
+| `adapter.control_authority.driver_auto_acquire` | bool；可选 | 自动取得底盘驱动控制权 |
+| `adapter.control_authority.driver_odom_topic` | string；可选 | 底盘驱动速度里程计话题 |
 | `adapter.control_authority.state_file` | string；control_authority 必填 | schema 2 重定位状态文件 |
 | `adapter.control_authority.odom_topic` | string；control_authority 必填 | nav_msgs/Odometry 新鲜度来源 |
 | `adapter.control_authority.localization_ok_topic` | string；control_authority 必填 | std_msgs/Bool 定位状态输出 |
@@ -1548,8 +1566,8 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `task_control.yaml: adapter.navigation_action` | `/move_base` | move_base_msgs/MoveBaseAction（代码固定） | action 客户端→导航服务器 |
 | `task_control.yaml: adapter.odom_topic` | `/fastlio_odom` | nav_msgs/Odometry（代码固定） | 适配器接收定位 pose.pose.position/orientation，用于进度、反馈和位姿新鲜度 |
 | `task_control.yaml: adapter.navigation_odom_topic` | `/odom` | nav_msgs/Odometry（launch 参数） | 只传给 move_base/TEB 读取轮式底盘速度；不替代适配器定位位姿 |
-| `task_control.yaml: adapter.zero_velocity_topic` | `/nav_cmd_vel` | geometry_msgs/Twist（代码固定） | move_base 与安全门之间的导航速度源；停车由控制权服务执行 |
-| `task_control.yaml: adapter.navigation_cmd_vel_topic` | `/nav_cmd_vel` | geometry_msgs/Twist（代码固定） | move_base 输出与 safety 输入的显式接线 |
+| `task_control.yaml: adapter.zero_velocity_topic` | `/wheeltec_driver/cmd_vel` | geometry_msgs/Twist（代码固定） | UGV_003 停车速度输出；导航速度由安全门控制 |
+| `task_control.yaml: adapter.navigation_cmd_vel_topic` | `/wheeltec_driver/cmd_vel` | geometry_msgs/Twist（代码固定） | UGV_003 原生导航速度输出 |
 | `task_control.yaml: adapter.localization_ok_topic` | `/wheeltec_control/localization_ok` | std_msgs/Bool（代码固定） | 活动地图与实时 `/fastlio_odom` 均有效时为 true |
 | `task_control.yaml: adapter.control_enabled_topic` | `/wheeltec_control/enabled` | std_msgs/Bool（代码固定） | 协调器确认驱动与安全门后的控制状态 |
 | `task_control.yaml: adapter.control_enable_service` | `/wheeltec_control/enable` | std_srvs/SetBool（代码固定） | 取得/归还自主控制权并确认真实状态 |
@@ -1558,6 +1576,7 @@ GO2_3 的根脚本隔离终端进程组，先停任务消费/适配器，再停�
 | `task_control.yaml: adapter.control_enabled_topic` | `/wheeltec_control/enabled` | std_msgs/Bool（代码固定） | 控制权协调器真实启用状态 |
 | `task_control.yaml: adapter.control_heartbeat_topic` | `/wheeltec_driver/control_heartbeat` | std_msgs/Empty（代码固定） | 自主状态 10 Hz 租约；0.5 秒过期锁定停车 |
 | `task_control.yaml: adapter.control_authority.odom_topic` | `/fastlio_odom` | nav_msgs/Odometry | 控制权协调器的实时定位新鲜度输入 |
+| `task_control.yaml: adapter.control_authority.driver_odom_topic` | `/odom` | nav_msgs/Odometry | 底盘驱动速度里程计 |
 | `task_control.yaml: adapter.control_authority.localization_ok_topic` | `/wheeltec_control/localization_ok` | std_msgs/Bool | 控制权协调器定位状态输出 |
 | `task_control.yaml: adapter.control_authority.enabled_topic` | `/wheeltec_control/enabled` | std_msgs/Bool | 控制权协调器自主状态输出 |
 | `task_control.yaml: adapter.control_authority.driver_enabled_topic` | `/wheeltec_robot/control_enabled` | std_msgs/Bool | 驱动自主状态输入 |
@@ -1591,7 +1610,7 @@ UGV_003 专用导航 launch 固定 `TebLocalPlannerROS/max_vel_x=0.20`、`max_ve
 | `udp_telemetry.yaml: descriptors[pgm_mapping].source.topic` | `/ccs/relocalization/pgm_file` | 无 ROS 类型 | file_status；不订阅；state_file=/home/nrc15/ccs_edge_ws/run/state/relocalization.json；map_root=/home/nrc15/ccs_edge_ws/maps/download；path_template={map_id}/map.pgm |
 | `udp_telemetry.yaml: runtime.link_status_topic` | `/ugv/{device_id}/link/udp_tx` | std_msgs/Bool | 输出；支持 {device_id} |
 | `udp_telemetry.yaml: runtime.diagnostics_topic` | `/ugv/{device_id}/diagnostics` | diagnostic_msgs/DiagnosticArray | 输出；支持 {device_id} |
-| `video.yaml: image_topic` | `/camera/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；根脚本不启动视频 |
+| `video.yaml: image_topic` | `/camera/color/image_raw` | sensor_msgs/Image（image_message_type） | 接收；输出 640×480@30；视频按需启动 |
 | `video.yaml: runtime.status_topic` | `~status` | std_msgs/String JSON |
 | `map_stream.yaml: ros.inputs.lidar.topic` | `/livox/lidar` | livox_ros_driver2/CustomMsg（message_type） | 接收；prepare 原始探测；frame=livox_frame |
 | `map_stream.yaml: ros.inputs.imu.topic` | `/livox/imu` | sensor_msgs/Imu（message_type） | 接收；prepare 原始探测；frame=livox_frame |
@@ -1600,12 +1619,14 @@ UGV_003 专用导航 launch 固定 `TebLocalPlannerROS/max_vel_x=0.20`、`max_ve
 | `map_stream.yaml: integrations.map_accumulator.service` | `/unused_wheeltec_map_service` | 外部 ROS 服务；现场核验 .srv | go2_accumulator 实际调用；其他 backend 为兼容占位，不据此要求启动 Go2 |
 | `relocalization.yaml: ros.initial_pose_topic` | `/initialpose` | geometry_msgs/PoseWithCovarianceStamped（代码固定） | 发布初始位姿，定位器订阅；按需定位 |
 | `relocalization.yaml: ros.map_topic` | `/map_2d` | nav_msgs/OccupancyGrid（外部地图约定） | 地图话题就绪检查，内容另验；按需定位 |
+| `relocalization.yaml: ros.localization_health_topic` | `/ccs/localization_valid` | std_msgs/Bool | UGV_004 定位健康状态 |
 | `task_control.yaml: ros.command_topic` | `/epgeneral_task_control/execution_command` | epgeneral_task_control/TaskExecutionCommand（代码固定） | 协调器→适配器 |
 | `task_control.yaml: ros.feedback_topic` | `/epgeneral_task_control/execution_feedback` | epgeneral_task_control/TaskExecutionFeedback（代码固定） | 适配器→协调器 |
 | `task_control.yaml: ros.status_topic` | `/epgeneral_task_control/task_status` | std_msgs/String（代码固定） | 协调器发布，锁存摘要 |
 | `task_control.yaml: adapter.navigation_action` | `/move_base` | move_base_msgs/MoveBaseAction（代码固定） | action 客户端→导航服务器 |
 | `task_control.yaml: adapter.odom_topic` | `/fastlio_odom` | nav_msgs/Odometry（代码固定） | 接收 pose.pose.position/orientation |
 | `task_control.yaml: adapter.zero_velocity_topic` | `/cmd_vel` | geometry_msgs/Twist（代码固定） | 发布零速度，配置中的停车接口 |
+| `task_control.yaml: adapter.localization_health_topic` | `/ccs/localization_valid` | std_msgs/Bool | 导航准备时检查定位健康 |
 
 建图坐标：map=`odom`，preview=`odom`，body=`base_link`，sensor=`body`；最终 artifacts.frame=`map`。外参取本机标定，不能复制本表所属设备的标定用于其他设备。
 
