@@ -1,5 +1,9 @@
 # 更新记录
 
+## [0.6.0] - 2026-09-24
+
+- Optional Wheeltec backend inside the existing package: fresh-cloud initial NDT confirmation without regions, continuous accepted TF and health, acknowledged atomic region replacement. No regions pauses automatic NDT only.
+
 ## 0.5.0 (2026-09-21)
 
 - 新增可选可信区域 XML 接收与存储配置；区域缺省或失败不影响重定位。

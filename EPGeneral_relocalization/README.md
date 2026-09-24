@@ -2,7 +2,7 @@
 
 配套 CCS 0.26.0：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
 
-当前版本 v0.5.0。运行配置统一由 `epgeneral_device_config/config/relocalization.yaml` 提供。活动地图状态文件使用 schema 2：首次成功后原子保存 `map <- odom`，重复重定位前立即清除旧变换；进程重启时旧的 `localized` 状态自动降级为 `standby`，必须重新建立实时里程计和 TF。Ground-Air 和 Go2 profile 可按固定周期持续上报 `map <- odom`；Go2 还可配置定位健康话题，只有算法健康且 TF 有效时才报告成功。Ground-Air 可将协议中的 `public_map.pcd` 在原子安装前改名为定位器要求的 `cloud_map.pcd`，Scout/Wheeltec 继续使用原稳定窗口。
+当前版本 v0.6.0。运行配置统一由 `epgeneral_device_config/config/relocalization.yaml` 提供。活动地图状态文件使用 schema 2：首次成功后原子保存 `map <- odom`，重复重定位前立即清除旧变换；进程重启时旧的 `localized` 状态自动降级为 `standby`，必须重新建立实时里程计和 TF。Ground-Air 和 Go2 profile 可按固定周期持续上报 `map <- odom`；Go2 还可配置定位健康话题，只有算法健康且 TF 有效时才报告成功。Ground-Air 可将协议中的 `public_map.pcd` 在原子安装前改名为定位器要求的 `cloud_map.pcd`，Scout 继续使用原稳定窗口；UGV_004 使用包内 Wheeltec NDT 后端及持续健康检查。
 
 ROS1 常驻重定位协调包。它监听 `ccs-relocalization-v1` UDP 控制消息，从已配置的地面站 HTTP 地址续传地图 ZIP，严格校验 manifest、大小和 SHA-256 后原子安装，再按 profile 顺序启动 Scout FAST-LIO、坐标适配、全局 PCD 重定位和 map_server。
 
@@ -15,3 +15,10 @@ Scout/Wheeltec 的成功判据仍为连续稳定的 `map <- odom` TF；Ground-Ai
 ## 可选可信区域
 
 支持 `trusted_regions_offer` / `trusted_regions_status`，经现有 HTTP 通道下载 XML，校验后原子落盘，独立于定位状态与 TF。详见 [可信区域配置和协议](../documents/INTERFACE_REFERENCE.md#可选可信区域接收)。
+
+
+### UGV_004 可选构建
+
+在 CCS 工作空间 source 原生 underlay 后执行 `catkin_make -DCCS_BUILD_WHEELTEC_LOCALIZER=ON -DCMAKE_BUILD_TYPE=Release -j2 -l2`。默认 OFF，不为其他 profile 引入必需的 PCL/OpenMP/native message 依赖。源码和许可证位于 `wheeltec/`，独立库 `ccs_wheeltec_ndt` 与程序 `ccs_wheeltec_localizer` 不覆盖原生实现。纯策略测试为 `devel/lib/epgeneral_relocalization/ccs_wheeltec_gate_test`。
+
+首次 NDT 成功不依赖可信区域。无区域暂停后续自动修正而保留定位/导航；区域桥接必须收到消费者回显才回报 ready。详见 [接口参考](../documents/INTERFACE_REFERENCE.md)。

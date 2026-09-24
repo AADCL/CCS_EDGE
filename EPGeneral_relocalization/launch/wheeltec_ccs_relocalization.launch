@@ -1,0 +1,23 @@
+<launch>
+  <arg name="map_pcd" />
+  <node pkg="fast_lio_localization" type="map_loader" name="wheeltec_map_loader" output="screen">
+    <param name="map_path" value="$(arg map_pcd)" />
+  </node>
+  <node pkg="epgeneral_relocalization" type="ccs_wheeltec_localizer" name="ccs_wheeltec_localizer" output="screen" required="true">
+    <param name="odom_frame" value="odom" />
+    <param name="ndt/num_threads" value="4" />
+    <param name="ndt/maximum_iterations" value="30" />
+    <param name="ndt/voxel_leaf_size" value="0.20" />
+    <param name="ndt/resolution" value="1.0" />
+    <param name="ndt/min_scan_range" value="0.50" />
+    <param name="ndt/max_scan_range" value="50.0" />
+    <param name="gate/editable" value="false" />
+    <param name="gate/require_converged" value="true" />
+    <param name="gate/min_confirm_frames" value="2" />
+    <param name="gate/max_fitness_score" value="2.0" />
+    <param name="gate/max_pose_jump" value="1.0" />
+    <param name="gate/max_yaw_jump" value="0.523599" />
+    <remap from="/velodyne_points" to="/cloud_registered_base" />
+    <remap from="/odom_lio" to="/fastlio_odom" />
+  </node>
+</launch>

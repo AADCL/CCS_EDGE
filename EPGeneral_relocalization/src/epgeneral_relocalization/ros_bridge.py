@@ -72,6 +72,18 @@ class StackManager(object):
             for stage in self.config["stages"]:
                 command = ["roslaunch", str(stage["package"]), str(stage["launch"])]
                 command.extend(str(item).format(**values) for item in stage.get("args", []))
+                sandbox = stage.get("runtime_sandbox")
+                if sandbox:
+                    workspace = os.path.abspath(os.path.expanduser(sandbox["workspace"]))
+                    command_prefix = ["bwrap", "--ro-bind", "/", "/", "--dev-bind", "/dev", "/dev",
+                                      "--proc", "/proc", "--bind", workspace, workspace]
+                    for binding in sandbox.get("bindings", []):
+                        source = os.path.abspath(os.path.expanduser(binding["source"]))
+                        if os.path.commonpath([source, workspace]) != workspace:
+                            raise RosIntegrationError("runtime binding must remain in CCS workspace")
+                        os.makedirs(source, exist_ok=True)
+                        command_prefix.extend(["--bind", source, binding["target"]])
+                    command = command_prefix + ["--"] + command
                 environment = os.environ.copy()
                 package_path = stage.get("ros_package_path_prepend")
                 expanded = (
@@ -213,6 +225,23 @@ class RosBridge(object):
         self.listener = tf2_ros.TransformListener(self.buffer)
         self._monitor_lock = threading.Lock()
         self._monitor_generation = 0
+        self.region_bridge = None
+        if config.get("trusted_regions_apply_to_ndt", False):
+            from .ndt_regions import NdtRegionBridge
+            self.region_bridge = NdtRegionBridge(rospy_module)
+
+
+    def _check_fresh_chain(self, transform):
+        if not self.config.get("require_fresh_tf", False):
+            return
+        base = self.buffer.lookup_transform(
+            self.config["map_frame"], self.config["base_frame"],
+            self.rospy.Time(0), self.rospy.Duration(0.1))
+        now = self.rospy.Time.now().to_sec()
+        for item in (transform, base):
+            stamp = item.header.stamp.to_sec()
+            if stamp <= 0 or not -0.5 <= now - stamp <= self.config["localization_health_timeout_seconds"]:
+                raise RosIntegrationError("map->odom->base_link TF is stale")
 
     def cancel_monitor(self):
         with self._monitor_lock:
@@ -289,6 +318,7 @@ class RosBridge(object):
                 transform = self.buffer.lookup_transform(
                     self.config["map_frame"], self.config["odom_frame"],
                     self.rospy.Time(0), self.rospy.Duration(min(delay, 0.2)))
+                self._check_fresh_chain(transform)
                 t, q = transform.transform.translation, transform.transform.rotation
                 sample = (float(t.x), float(t.y), float(t.z),
                           float(q.x), float(q.y), float(q.z), float(q.w))
@@ -344,6 +374,7 @@ class RosBridge(object):
                 transform = self.buffer.lookup_transform(
                     self.config["map_frame"], self.config["odom_frame"],
                     self.rospy.Time(0), self.rospy.Duration(min(interval, 0.2)))
+                self._check_fresh_chain(transform)
                 t, q = transform.transform.translation, transform.transform.rotation
                 sample = (float(t.x), float(t.y), float(t.z),
                           float(q.x), float(q.y), float(q.z), float(q.w))
@@ -368,6 +399,9 @@ class RosBridge(object):
                     cached_stamp = stamp
                 sample = cached_sample
             except Exception as error:
+                if self.config.get("require_fresh_tf", False) and cached_sample is not None:
+                    callback(False, None, str(error))
+                    return
                 self.logger.warning("relocalization_tf_sample_skipped error=%s", error)
                 if cached_sample is None:
                     if time.monotonic() - started_at < self.config["tf_timeout_seconds"]:

@@ -118,6 +118,28 @@ class TrustedRegionsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_xml(b'<!DOCTYPE foo><trusted_regions/>')
 
+    def test_ndt_consumer_ack_required_and_failure_rolls_back(self):
+        self.node.config['trusted_regions_apply_to_ndt'] = True
+        bridge = mock.Mock()
+        bridge.snapshot.return_value = 'previous'
+        self.node.ros = SimpleNamespace(region_bridge=bridge)
+        self.receive(self.message())
+        bridge.apply.assert_called_once_with(self.doc)
+        self.assertEqual(self.replies[-1][1]['state'], 'ready')
+        before = self.destination.read_bytes()
+        bridge.apply.side_effect = RuntimeError('NDT_REGION_APPLICATION_TIMEOUT')
+        self.receive(self.message('timeout'))
+        bridge.restore.assert_called_once_with('previous')
+        self.assertEqual(self.replies[-1][1]['state'], 'error')
+        self.assertEqual(self.destination.read_bytes(), before)
+        self.assertEqual(self.node.state, 'localized')
+        bridge.apply.side_effect = None
+        self.doc['regions'] = []
+        self.data = encode_xml(self.doc)
+        self.receive(self.message('clear'))
+        self.assertEqual(bridge.apply.call_args[0][0]['regions'], [])
+        self.assertEqual(self.node.state, 'localized')
+
     def test_optional_config_defaults_allow_existing_profiles(self):
         shared = Path(__file__).resolve().parents[2] / 'EPGeneral_device_config/config'
         import yaml
