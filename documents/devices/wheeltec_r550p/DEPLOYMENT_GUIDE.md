@@ -179,7 +179,7 @@ UGV_004 使用现有 `EPGeneral_relocalization` 0.6.0 内的 `ccs_wheeltec_local
 
 定位成功后可按原流程下发可信区域 XML。UGV_004 的 `trusted_regions.apply_to_ndt: true` 启用消费者确认桥接：校验地图、设备、会话、版本、map 坐标系及多边形后，将原子替换请求发布到 `/ndt_gate/set_regions`（`fast_lio_localization/AllowedRegions`）。只有 `/ndt_gate/regions` 回显相同时间戳令牌和实际区域集合后，平台才收到 `ready`；`/ndt_gate/status` 提供算法状态。非空区域启用区域内自动修正；空区域清空约束并暂停自动修正，定位状态保留。失败返回错误并尝试恢复原集合，不清除定位成功。切换地图重新启动唯一定位器，清除旧区域；不会自动载入上一地图的区域。ROS 话题不承载平台会话，桥接在地图会话锁内完成校验与确认；只能由该桥接写入。
 
-Gemini 336L 通过已安装的 `wheeltec_yolo11/camera_rgbd.launch camera_fps:=30` 启动 RGB/深度，不启动识别算法。根脚本监督相机与视频：检测新鲜 640×480 RGB/深度后启动 SRT 9000、30 FPS、180° 旋转。可复用经出图检查的外部相机，仅停止自己创建的子进程；缺失、超时、异常退出记为 `CAMERA_VIDEO_DEGRADED`，不停止其他服务。根脚本的重复启动由文件锁拒绝。优先使用根脚本；组合 bringup launch 仅用于手动集成，不提供根脚本的所有权/出图监督。
+Gemini 336L 通过已安装的 `orbbec_camera/gemini_330_series.launch`（显式设置 RGB/深度 640×480、30 FPS，驱动旋转为 0） 启动 RGB/深度，不启动识别算法。根脚本监督相机与视频：检测新鲜 640×480 RGB/深度后启动 SRT 9000、30 FPS、180° 旋转。可复用经出图检查的外部相机，仅停止自己创建的子进程；缺失、超时、异常退出记为 `CAMERA_VIDEO_DEGRADED`，不停止其他服务。根脚本的重复启动由文件锁拒绝。优先使用根脚本；组合 bringup launch 仅用于手动集成，不提供根脚本的所有权/出图监督。
 
 UGV_004 配置 `timeouts.preparation_retry_on_failure: false`。准备保留 25 秒超时，检查健康与完整 TF；失败后保存状态、错误原因和导航日志位置，查询、迟到反馈和进程重启不会自动恢复准备。重新下发完整任务才开启新准备。日志位于 `logs/navigation/navigation-<map_id>.log`。验收只发送 PREPARE，不发送 SCHEDULE 或 move_base 目标。
 

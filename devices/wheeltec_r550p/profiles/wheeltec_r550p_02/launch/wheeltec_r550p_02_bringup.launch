@@ -15,9 +15,25 @@
     <arg name="diagnostics_topic" value="/ugv/UGV_004/diagnostics" />
   </include>
   <group if="$(arg enable_video)">
-    <include file="$(find wheeltec_yolo11)/launch/camera_rgbd.launch">
-      <arg name="camera_fps" value="30" />
+    <include file="$(find orbbec_camera)/launch/gemini_330_series.launch">
+      <arg name="camera_name" value="camera" />
+      <arg name="enable_color" value="true" />
+      <arg name="enable_depth" value="true" />
+      <arg name="color_width" value="640" />
+      <arg name="color_height" value="480" />
+      <arg name="color_fps" value="30" />
+      <arg name="color_rotation" value="0" />
+      <arg name="depth_width" value="640" />
+      <arg name="depth_height" value="480" />
+      <arg name="depth_fps" value="30" />
+      <arg name="depth_rotation" value="0" />
+      <arg name="depth_registration" value="true" />
+      <arg name="enable_point_cloud" value="false" />
+      <arg name="enable_colored_point_cloud" value="false" />
+      <arg name="enable_image_transport_plugins" value="false" />
     </include>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="wheeltec_camera_mount_tf"
+          args="0.16 0 0.08 0 0 3.141592653589793 base_link camera_link" />
     <include file="$(find epgeneral_video_srt)/launch/epgeneral_video_srt.launch">
       <arg name="device_config_file" value="$(arg profile_dir)/device.yaml" />
       <arg name="video_config_file" value="$(arg profile_dir)/video.yaml" />

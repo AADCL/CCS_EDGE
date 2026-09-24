@@ -197,7 +197,7 @@ if [[ "${CHECK_ONLY}" == true ]]; then
   exit 0
 fi
 ros_node_exists /epgeneral_navigation_task_adapter || fail "Navigation task adapter is absent."
-setsid python3 -u "${WORKSPACE}/scripts/ccs_camera_supervisor.py" --profile "${PROFILE_CONFIG_DIR}" --log-dir "${LOG_DIR}" >"${LOG_DIR}/camera_supervisor.log" 2>&1 </dev/null &
+setsid python3 -u "${WORKSPACE}/scripts/ccs_camera_supervisor.py" --profile "${PROFILE_CONFIG_DIR}" --log-dir "${LOG_DIR}" --owner-pid "$$" >"${LOG_DIR}/camera_supervisor.log" 2>&1 </dev/null &
 CAMERA_PID=$!
 report OK "UGV_004 services running; optional RGBD/SRT startup is logged in camera_supervisor.log."
 while true; do
