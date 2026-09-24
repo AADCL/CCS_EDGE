@@ -1,88 +1,57 @@
 # epgeneral_video_srt
 
-配套 CCS 0.23.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
+当前版本：**0.2.0**。ROS Noetic 的通用视频输入与 H.264/MPEG-TS/SRT Listener 输出包。
 
-当前版本：`v0.1.2`
+[使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [接口参考](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md) · [通用化、迁移与验证](../documents/VIDEO_SRT_GENERIC.md)
 
-运行配置统一由 `epgeneral_device_config/config/video.yaml` 提供；设备专用视频参数保存在对应部署 profile。
+设备身份、相机驱动、图像话题、RTSP 地址及硬件预加载路径均由 `EPGeneral_device_config` 提供。功能包不携带运行 YAML，不按设备名或相机型号选择行为。支持 `ros_image`、`ros_compressed`、`rtsp` 三种输入；均输出 baseline H.264、MPEG-TS、SRT Listener。
 
-该 ROS Noetic 包订阅现有 `sensor_msgs/Image` 或 `sensor_msgs/CompressedImage`
-话题，将图像编码为低延迟 baseline H.264，封装为 MPEG-TS，并通过 SRT Listener
-发送。节点不启动摄像头驱动。
+## 安装
 
-默认监听地址为 `srt://:9000?mode=listener&transtype=live&latency=120000`（绑定配置中的 `0.0.0.0`）；如果配置具体本地地址，节点会将其用于 Listener。YAML 延迟单位为毫秒，生成 SRT URI 时转换为微秒。地面站使用设备 IP 作为
-SRT Caller 连接，端侧无需配置地面站地址。
-
-## 环境与安装
-
-- Ubuntu 20.04、ROS Noetic、GStreamer 1.16+
-- `cv_bridge`、`image_transport`、GStreamer app/base/good/bad/ugly 插件
+Ubuntu 20.04 / ROS Noetic / GStreamer 1.16+：
 
 ```bash
-sudo apt update
 sudo apt install ros-noetic-cv-bridge ros-noetic-image-transport libopencv-dev \
-  libgstreamer1.0-dev gstreamer1.0-tools gstreamer1.0-plugins-base \
-  gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-  gstreamer1.0-plugins-ugly gstreamer1.0-libav
-gst-inspect-1.0 srtsink
+  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+  gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+  python3-yaml python3-gi gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0
+cd ~/ccs_edge_ws
+catkin_make
+source devel/setup.bash
 ```
 
-`gst-inspect-1.0 srtsink` 必须成功。防火墙需要放行端侧 UDP 9000。
-
-如果 roslaunch 显示 `process ... died ... exit code 1`，请先查看同目录的节点日志。该包会在启动时明确报告缺失的 GStreamer 元素；其中 `srtsink` 缺失时安装 `gstreamer1.0-plugins-bad`，并检查 `GST_PLUGIN_PATH` 没有覆盖系统插件目录：
-
-```bash
-gst-inspect-1.0 srtsink
-echo "$GST_PLUGIN_PATH"
-```
-
-节点日志中应出现完整管线、`SRT listener bound` 和 `waiting for a ground-station caller`。若管线创建成功但无法连接，检查 UDP 端口占用和防火墙：
-
-```bash
-ss -lunp | grep ':9000'
-sudo ufw allow 9000/udp
-```
+相机驱动按设备安装在原生工作空间，不作为本包的固定依赖。
 
 ## 配置与启动
 
-`epgeneral_device_config/config/video.yaml` 的主要参数：
-
-```yaml
-image_topic: "/camera/image_raw"
-image_message_type: "sensor_msgs/Image"
-output_width: 640
-output_height: 480
-framerate: 30
-bitrate_kbps: 2000
-rotation_degrees: 0
-srt_bind_address: "0.0.0.0"
-srt_port: 9000
-srt_latency_ms: 120
-frame_timeout_seconds: 5.0
-```
+先按部署脚本安装 profile 到共享配置包及工作空间配置目录，然后明确选择实际运行副本：
 
 ```bash
-cd ~/catkin_ws
-catkin_make
-source devel/setup.bash
-roslaunch epgeneral_video_srt epgeneral_video_srt.launch
+CFG="$(rospack find epgeneral_device_config)/config"
+rosrun epgeneral_video_srt video_srt_node.py --config-dir "$CFG" --check-config
+rosrun epgeneral_video_srt video_srt_node.py --config-dir "$CFG" --check-runtime
+# 仅当需要本包管理相机驱动时，在独立终端/已有进程监督器中执行：
+roslaunch epgeneral_video_srt camera.launch config_dir:="$CFG"
+roslaunch epgeneral_video_srt epgeneral_video_srt.launch config_dir:="$CFG"
 ```
 
-压缩图像将 `image_message_type` 设置为 `sensor_msgs/CompressedImage` 并填写对应压缩话题。`rotation_degrees` 只支持 `0` 或 `180`，旋转发生在 SRT 编码前，不修改相机原始话题。RealSense D435i 参数保存在 `devices/go2/profiles/go2_edu/config/video.yaml`；适配 launch 需显式传入集中配置：
+`config_dir` 同时加载 `device.yaml` 和 `video.yaml`；也可传完整的 `device_config_file`、`video_config_file` 文件对。两种方式互斥，空参启动失败，不会隐式使用样例设备。配置修改后需重启。
+
+`enabled: false` 使视频和相机入口直接成功退出。`capture.enabled: false` 仅关闭可选相机入口，视频仍可订阅外部输入。视频节点本身不启动相机驱动。
+
+`rtsp_srt.launch`、`epgeneral_realsense_d435i_srt.launch` 保留为同一通用入口的兼容别名，模式完全由 YAML 决定。`rtsp_srt_node.py` 为同一 CLI 的兼容脚本；旧的仅 ROS 私有参数调用须迁移到配置文件。
+
+## 运行状态与边界
+
+默认状态话题 `/epgeneral_video_srt/status` 发布 `std_msgs/String` JSON：设备 ID、输入模式、就绪状态、帧数、帧龄、重连次数、错误类别。ROS 后端帧数随管线重建归零；RTSP 后端累计到进程退出。`ready` 表示近期输入已进入管线，不代表远端播放器已经解码。
+
+输入超时或运行中管线错误会按配置间隔重建；ROS 后端初始配置、插件或 Listener 启动失败直接退出交给监督器处理。RTSP 连接失败自动重试。状态日志隐藏 RTSP URI，诊断配置输出也隐藏该值；不要把含密码 URI 直接写入版本库。
+
+SRT 延迟以毫秒直接设置 GStreamer `srtsink.latency`，不再在 GStreamer URI 中乘 1000。播放器的 FFmpeg SRT URI 使用其自身微秒单位，例如：
 
 ```bash
-roslaunch epgeneral_video_srt epgeneral_realsense_d435i_srt.launch \
-  video_config_file:="$(rospack find epgeneral_device_config)/config/video.yaml"
-```
-
-本包只订阅话题，摄像头驱动需单独启动。可用下列命令检查输入和本机输出：
-
-```bash
-rostopic type /camera/image_raw
-rostopic hz /camera/image_raw
 ffplay "srt://127.0.0.1:9000?mode=caller&transtype=live&latency=120000"
 ```
 
-编码链为 `appsrc -> [videoflip] -> videoconvert -> x264enc -> h264parse -> mpegtsmux -> srtsink`；仅当 `rotation_degrees=180` 时插入 `videoflip`。通配地址使用 `srt://:<port>?mode=listener`，避免部分 SRT 插件将 `0.0.0.0` 当成远端地址解析失败。
-MPEG-TS 使用 7 个 188 字节包对齐，即每次 1316 字节；H.264 禁用 B 帧并周期插入
-SPS/PPS。SRT 面向可信局域网，本版本不提供加密、认证、音频、录像或多客户端分发。
+分辨率须为偶数，旋转支持 0/180 度；输入不足时不会在 ROS 后端补帧。端侧按配置开放 SRT UDP 端口。当前范围不包含音频、录像、认证、加密和多客户端分发。

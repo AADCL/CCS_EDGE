@@ -8,7 +8,6 @@ GROUND_STATION_IP="${CCS_GROUND_STATION_IP:-192.168.50.101}"
 NTP_SERVER="${CCS_NTP_SERVER:-${GROUND_STATION_IP}}"
 ROS_IP_VALUE="${CCS_ROS_IP:-192.168.50.112}"
 NETWORK_INTERFACE="${CCS_GO2_NETWORK_INTERFACE:-go2dds}"
-CAMERA_SERIAL="${CCS_D435_SERIAL:-}"
 STATE_DIR="${WORKSPACE}/run/managed"
 LOG_ROOT="${CCS_EDGE_LOG_ROOT:-/home/unitree/.ros/ccs_edge_ws}"
 LOG_DIR="${LOG_ROOT}/__preflight__"
@@ -210,6 +209,7 @@ ip -o -4 addr show dev "${NETWORK_INTERFACE}" | awk '{print $4}' | grep -Fxq '19
 ip -o -4 addr show dev eth1 | awk '{print $4}' | grep -Fxq '192.168.1.50/24' || fail "Livox eth1 address is missing."
 ping -I eth1 -c 1 -W 2 192.168.1.119 >/dev/null || fail "MID360 is unreachable on eth1."
 run_quiet python3 "${WORKSPACE}/scripts/ccs_sntp_sync.py" --server "${NTP_SERVER}" --retries 2 --availability-only || fail "Ground-station time service is unavailable at ${NTP_SERVER}:123; check platform connectivity and the NTP service."
+run_quiet rosrun epgeneral_video_srt video_srt_node.py --config-dir "${PROFILE_CONFIG_DIR}" --check-runtime --check-camera || fail "Video configuration or camera launch preflight failed."
 gst-inspect-1.0 srtsink >/dev/null 2>&1 || fail "GStreamer SRT plugin is missing."
 gst-inspect-1.0 x264enc >/dev/null 2>&1 || fail "GStreamer x264 plugin is missing."
 command -v setsid >/dev/null 2>&1 || fail "setsid is required for controlled shutdown."
@@ -301,14 +301,7 @@ if [[ "${CHECK_ONLY}" != true ]]; then
   check_service_type /go2_sdk_bridge_real/enable std_srvs/SetBool || fail "GO2 enable service is unavailable."
   run_quiet python3 "${READINESS}" disabled --timeout 20 --max-age 3 || fail "Chassis did not start disabled with fresh DDS state."
 fi
-camera_args=(
-  realsense2_camera rs_camera.launch
-  enable_color:=true color_width:=640 color_height:=480 color_fps:=15 enable_depth:=false
-  enable_infra:=false enable_infra1:=false enable_infra2:=false enable_gyro:=false enable_accel:=false publish_tf:=false
-)
-if [[ -n "${CAMERA_SERIAL}" ]]; then
-  camera_args+=("serial_no:=${CAMERA_SERIAL}")
-fi
+camera_args=(epgeneral_video_srt camera.launch "config_dir:=${PROFILE_CONFIG_DIR}")
 launch 2 --defer-ready "${camera_args[@]}"
 if [[ "${CHECK_ONLY}" != true ]]; then
   run_quiet python3 "${READINESS}" camera --timeout 30 --max-age 3 || \

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>epgeneral_video_srt</name>
-  <version>0.1.2</version>
-  <description>Low-latency H.264/MPEG-TS SRT streaming from configurable ROS image topics.</description>
+  <version>0.2.0</version>
+  <description>Low-latency H.264/MPEG-TS SRT streaming from shared-configured ROS images or RTSP sources.</description>
   <maintainer email="maintainer@example.com">CCS Maintainer</maintainer>
   <license>MIT</license>
 
@@ -12,11 +12,15 @@
   <build_depend>image_transport</build_depend>
   <build_depend>libopencv-dev</build_depend>
   <build_depend>libgstreamer1.0-dev</build_depend>
+  <build_depend>libgstreamer-plugins-base1.0-dev</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
 
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>epgeneral_device_config</exec_depend>
+  <exec_depend>gstreamer1.0-tools</exec_depend>
   <exec_depend>gstreamer1.0-libav</exec_depend>
   <exec_depend>gstreamer1.0-plugins-base</exec_depend>
   <exec_depend>gstreamer1.0-plugins-bad</exec_depend>
@@ -29,6 +33,9 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>python3-gi</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>roslib</exec_depend>
   <exec_depend>gir1.2-gstreamer-1.0</exec_depend>
+  <exec_depend>gir1.2-gst-plugins-base-1.0</exec_depend>
   <export />
 </package>

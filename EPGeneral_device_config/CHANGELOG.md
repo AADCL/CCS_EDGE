@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.3.0 (2026-09-23)
+
+- 新增 video_generic 模板；共享与八份 video.yaml 迁移 schema 2。
+- 集中视频模式、运行状态、重连、驱动参数和 UAV 解码器预加载路径。
+- 配套视频包 0.2.0 显式配置入口；保留设备身份、原有输出参数及来源。
+
 ## 0.2.0 (2026-09-22)
 
 - 新增 config/templates/udp_generic，配套 epgeneral_udp_telemetry 0.4.0 显式配置入口。

@@ -20,11 +20,17 @@ def config(name):
 class Go2Robot2ProfileTests(unittest.TestCase):
     def test_camera_autoselection_preserves_usb3_profile_and_waits_for_rgb(self):
         script = (PROFILE / "start_ccs_edge_dev.sh").read_text(encoding="utf-8")
-        self.assertIn('CAMERA_SERIAL="${CCS_D435_SERIAL:-}"', script)
-        self.assertIn('camera_args+=("serial_no:=${CAMERA_SERIAL}")', script)
+        capture = config("video")["capture"]
+        self.assertEqual(capture["package"], "realsense2_camera")
+        self.assertEqual(capture["arg_env"], {"serial_no": "CCS_D435_SERIAL"})
+        self.assertEqual(capture["args"]["color_fps"], 30)
+        self.assertEqual(capture["args"]["color_width"], 640)
+        self.assertEqual(capture["args"]["color_height"], 480)
+        for name in ("enable_depth", "enable_infra", "enable_infra1", "enable_infra2", "enable_gyro", "enable_accel", "publish_tf"):
+            self.assertFalse(capture["args"][name])
+        self.assertIn('camera_args=(epgeneral_video_srt camera.launch "config_dir:=${PROFILE_CONFIG_DIR}")', script)
         self.assertNotIn("device_type:=", script)
         self.assertNotIn("serial_no:=_", script)
-        self.assertIn("color_fps:=30", script)
         self.assertEqual(config("video")["framerate"], 30)
         camera = script.index('start_launch 2 --defer-ready "${camera_args[@]}"')
         fresh = script.index('"${READINESS}" camera --timeout 30 --max-age 3')

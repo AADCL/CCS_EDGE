@@ -74,7 +74,9 @@ class WheeltecR550pProfileTests(unittest.TestCase):
         ):
             self.assertIn(value, script)
         manager = (PROFILE / "manage_ccs_video.sh").read_text(encoding="utf-8")
-        self.assertIn("wheeltec_orbbec336l.launch", manager)
+        self.assertIn("epgeneral_video_srt camera.launch", manager)
+        video = yaml.safe_load((PROFILE / "config/video.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(video["capture"]["launch"], "wheeltec_orbbec336l.launch")
         self.assertIn("/camera/color/image_raw", manager)
         self.assertIn("epgeneral_video_srt.launch", manager)
 

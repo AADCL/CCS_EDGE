@@ -17,7 +17,7 @@
     <arg name="config_dir" value="$(find epgeneral_device_config)/config"/>
   </include>
   <include file="$(find epgeneral_video_srt)/launch/rtsp_srt.launch">
-    <arg name="decoder_preload" value="/lib/aarch64-linux-gnu/libgomp.so.1"/>
+    <arg name="config_dir" value="$(find epgeneral_device_config)/config"/>
   </include>
   <include file="$(find epgeneral_map_stream)/launch/epgeneral_map_stream.launch">
     <arg name="log_dir" value="$(arg log_dir)/map_stream"/>

@@ -12,3 +12,10 @@ srt_port: 9000
 srt_latency_ms: 120
 bitrate_kbps: 2500
 frame_timeout_seconds: 5.0
+rotation_degrees: 0
+runtime:
+  status_topic: ~status
+  reconnect_interval_seconds: 3.0
+  decoder_preload: []
+capture:
+  enabled: false
