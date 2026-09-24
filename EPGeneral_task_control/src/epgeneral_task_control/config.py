@@ -64,9 +64,13 @@ def load_config(task_path, device_path):
     ros = _map(task, "ros")
     timeouts = _map(task, "timeouts")
     limits = _map(task, "limits")
+    if type(timeouts.get("preparation_retry_on_failure", True)) is not bool:
+        raise ConfigError("timeouts.preparation_retry_on_failure must be boolean")
     adapter = task.get("adapter", {})
     if adapter and not isinstance(adapter, dict):
         raise ConfigError("adapter must be a mapping")
+    if type(adapter.get("require_fresh_tf", False)) is not bool:
+        raise ConfigError("adapter.require_fresh_tf must be boolean")
     device = _map(device_root, "device")
     result = {
         "protocol_id": _text(task, "protocol_id"),
@@ -86,6 +90,7 @@ def load_config(task_path, device_path):
         "transfer_seconds": _number(timeouts.get("transfer_seconds"), "timeouts.transfer_seconds", 0.1),
         "adapter_feedback_seconds": _number(timeouts.get("adapter_feedback_seconds"), "timeouts.adapter_feedback_seconds", 0.1),
         "execution_feedback_seconds": _number(timeouts.get("execution_feedback_seconds"), "timeouts.execution_feedback_seconds", 0.1),
+        "preparation_retry_on_failure": timeouts.get("preparation_retry_on_failure", True),
         "preparation_retry_seconds": _number(timeouts.get("preparation_retry_seconds"), "timeouts.preparation_retry_seconds", 0.5),
         "utc_tolerance_seconds": _number(timeouts.get("utc_tolerance_seconds"), "timeouts.utc_tolerance_seconds", 0.01),
         "max_waypoints": _number(limits.get("max_waypoints"), "limits.max_waypoints", 2, 500, True),

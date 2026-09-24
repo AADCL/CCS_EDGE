@@ -2,9 +2,9 @@
 
 配套 CCS 0.23.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
 
-<!-- epgeneral_task_control_VERSION: 0.6.3 -->
+<!-- epgeneral_task_control_VERSION: 0.6.4 -->
 
-版本：`v0.6.3`。运行配置统一由 `epgeneral_device_config/config/task_control.yaml` 提供。Scout Mini 继续通过 `/move_base` 执行任务；Wheeltec R550P 增加二维地图导航入口和硬件遥控/自主控制权协调；Ground-Air AGV 通过原生任务服务执行仅地面航点，并要求实时定位、人工解锁和 OFFBOARD。
+版本：`v0.6.4`。运行配置统一由 `epgeneral_device_config/config/task_control.yaml` 提供。Scout Mini 继续通过 `/move_base` 执行任务；Wheeltec R550P 增加二维地图导航入口和硬件遥控/自主控制权协调；Ground-Air AGV 通过原生任务服务执行仅地面航点，并要求实时定位、人工解锁和 OFFBOARD。
 
 ## Go2 显式控制服务接入
 

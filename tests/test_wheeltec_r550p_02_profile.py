@@ -77,9 +77,10 @@ class Wheeltec02Tests(unittest.TestCase):
     def test_base_and_video_do_not_start_algorithm_stacks(self):
         launch = ElementTree.parse(PROFILE/'launch/wheeltec_r550p_02_base.launch').getroot()
         self.assertEqual(len(launch.findall('include')), 2)
-        self.assertFalse(self.config['video']['enabled'])
+        self.assertTrue(self.config['video']['enabled'])
+        self.assertEqual(self.config['video']['rotation_degrees'], 180)
         bringup = ElementTree.parse(PROFILE/'launch/wheeltec_r550p_02_bringup.launch').getroot()
-        self.assertEqual(bringup.find("arg[@name='enable_video']").get('default'), 'false')
+        self.assertEqual(bringup.find("arg[@name='enable_video']").get('default'), 'true')
         script = (PROFILE/'start_ccs_edge_dev.sh').read_text()
         self.assertNotIn('epgeneral_video_srt.launch', script)
         self.assertNotIn('/go2_sdk_bridge_real/enable', script)

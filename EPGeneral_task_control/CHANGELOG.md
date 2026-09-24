@@ -1,6 +1,10 @@
 # Changelog
 
-<!-- epgeneral_task_control_VERSION: 0.6.3 -->
+## [0.6.4] - 2026-09-24
+
+- UGV_004 opts into fresh localization/full TF checks and terminal preparation failures. Preserve diagnostics across queries and restart; explicit task redelivery starts a new preparation. Other profiles retain retry defaults.
+
+<!-- epgeneral_task_control_VERSION: 0.6.4 -->
 
 ## Unreleased - 2026-09-17 deployment configuration
 

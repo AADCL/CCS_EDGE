@@ -156,7 +156,9 @@ class RelocalizationNode(TrustedRegionsReceiver):
     def _negotiate(self, message):
         with self.lock:
             new_identity = {key: message[key] for key in ("map_id", "device_id", "session_id")}
-            if self.identity is not None and self.identity["session_id"] != message["session_id"]:
+            if self.identity is not None and (
+                    self.identity["session_id"] != message["session_id"] or
+                    self.identity["map_id"] != message["map_id"]):
                 self.operation_generation += 1
                 if self.ros is not None:
                     self.ros.cancel_monitor()
@@ -188,6 +190,8 @@ class RelocalizationNode(TrustedRegionsReceiver):
                     and persisted.get("status") == "localized"
                     and persisted.get("map_from_odom") is not None
                 )
+                if has_persisted_tf and self.config.get("require_fresh_tf", False):
+                    has_persisted_tf = self.ros is not None and self.ros._localization_health_ready() and self.stack.is_running()
                 response_state = "localized" if has_persisted_tf else "map_ready"
                 self.state = response_state
                 if has_persisted_tf:

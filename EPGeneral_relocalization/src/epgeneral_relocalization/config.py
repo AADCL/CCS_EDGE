@@ -32,7 +32,12 @@ def load_config(path, device_path):
                 or not isinstance(regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions"), str)
                 or not regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions").strip()):
             raise ConfigError("trusted_regions configuration is invalid")
+        if type(regions.get("apply_to_ndt", False)) is not bool or type(ros.get("require_fresh_tf", False)) is not bool:
+            raise ConfigError("apply_to_ndt and require_fresh_tf must be boolean")
         result = {
+            "trusted_regions_apply_to_ndt": bool(regions.get("apply_to_ndt", False)),
+            "require_fresh_tf": bool(ros.get("require_fresh_tf", False)),
+            "base_frame": str(ros.get("base_frame", "base_link")),
             "trusted_regions_enabled": regions.get("enabled", True),
             "trusted_regions_root": regions.get("root", "~/.ros/ccs_edge_dev/trusted_regions"),
             "protocol_id": str(data["protocol_id"]), "enabled": bool(data["enabled"]),

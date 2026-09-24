@@ -148,9 +148,9 @@ rospack find epgeneral_device_config
 | [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.4.0 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.2.0 | 相机接入与 SRT 视频传输 |
 | [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
-| [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.5.0 | 重定位与定位状态上报 |
-| [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.3 | 任务与导航执行协调 |
-| [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.3 | Go2 原生控制、状态与流程适配 |
+| [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.6.0 | 重定位与定位状态上报 |
+| [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.4 | 任务与导航执行协调 |
+| [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.2 | Go2 原生控制、状态与流程适配 |
 | [EPGeneral_uav_integration](devices/uav/EPGeneral_uav_integration/README.md) | `epgeneral_uav_integration` | 0.1.0 | UAV 原生建图、重定位与飞行阶段适配 |
 | [EPGeneral_ground_air_control](devices/ground_air_agv/EPGeneral_ground_air_control/README.md) | `epgeneral_ground_air_control` | 0.2.0 | Ground-Air 地面任务、控制权与急停 |
 

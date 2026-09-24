@@ -239,6 +239,7 @@ class ScoutNavigationAdapter(object):
         self.navigation_map_id = None
         self.latest_odom = None
         self.latest_odom_at = 0.0
+        self.localization_health = (False, 0.0)
         self.feedback_pub = None
         self.zero_pub = None
         self.tf_buffer = None
@@ -268,6 +269,11 @@ class ScoutNavigationAdapter(object):
         self.zero_pub = self.rospy.Publisher(
             self.config["zero_velocity_topic"], Twist, queue_size=10)
         self._initialize_tf(tf2_ros, tf2_geometry_msgs)
+        if self.config.get("localization_health_topic"):
+            from std_msgs.msg import Bool
+            self.health_subscriber = self.rospy.Subscriber(
+                self.config["localization_health_topic"], Bool,
+                self._health_callback, queue_size=1)
         if self.control_safety is not None:
             self.control_safety.start(self._reset_emergency_stop)
         self.rospy.Subscriber(
@@ -282,6 +288,9 @@ class ScoutNavigationAdapter(object):
         # TransformListener owns the /tf and /tf_static subscriptions and must stay alive.
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         self.tf_converter = tf2_geometry_msgs
+
+    def _health_callback(self, message):
+        self.localization_health = (bool(message.data), time.monotonic())
 
     def _odom_callback(self, message):
         with self.lock:
@@ -386,6 +395,8 @@ class ScoutNavigationAdapter(object):
                 if self._process_exited():
                     raise ScoutAdapterError(self._navigation_exit_message(startup=True))
                 if client.wait_for_server(self.rospy.Duration(0.2)):
+                    if self.config.get("require_fresh_tf", False):
+                        self._map_pose()
                     with self.lock:
                         if (self.stop_event.is_set() or self.stopping or self.prepared is None or
                                 self.prepared["payload"]["map_id"] != payload["map_id"]):
@@ -397,7 +408,7 @@ class ScoutNavigationAdapter(object):
                     self._feedback(command, "preparing", -1, 0.0, "waiting for move_base action server")
                     next_feedback_at = time.monotonic() + 1.0
             if not self.stop_event.is_set():
-                raise ScoutAdapterError("move_base action server did not become ready")
+                raise ScoutAdapterError("move_base action server did not become ready; log=" + self.navigation_log_path)
         except (ScoutAdapterError, IOError, OSError, ValueError) as exc:
             if not self.stop_event.is_set():
                 self._feedback(command, "failed", -1, 0.0, str(exc), execution_error_code(exc))
@@ -585,6 +596,10 @@ class ScoutNavigationAdapter(object):
         return actionlib.SimpleActionClient(self.config["navigation_action"], MoveBaseAction)
 
     def _map_pose(self):
+        if self.config.get("localization_health_topic"):
+            healthy, updated = self.localization_health
+            if not healthy or time.monotonic() - updated > self.config["pose_timeout_seconds"]:
+                raise ScoutAdapterError("localization health is unavailable or stale")
         if self.control_safety is not None:
             self.control_safety.assert_localized()
         with self.lock:
@@ -600,6 +615,17 @@ class ScoutNavigationAdapter(object):
                 self.rospy.Time(0), self.rospy.Duration(self.config["pose_timeout_seconds"]))
         except Exception as exc:
             raise ScoutAdapterError("map<-odom TF is unavailable: %s" % exc)
+        if self.config.get("require_fresh_tf", False):
+            try:
+                base = self.tf_buffer.lookup_transform(
+                    self.config["map_frame"], self.config.get("base_frame", "base_link"),
+                    self.rospy.Time(0), self.rospy.Duration(0.1))
+                now = self.rospy.Time.now().to_sec()
+                for stamp in (transform.header.stamp, base.header.stamp, message.header.stamp):
+                    if stamp.to_sec() <= 0 or not -0.5 <= now - stamp.to_sec() <= self.config["pose_timeout_seconds"]:
+                        raise ScoutAdapterError("map->odom->base_link TF or odometry is stale")
+            except Exception as exc:
+                raise ScoutAdapterError("localization TF chain not ready: %s" % exc)
         from geometry_msgs.msg import PoseStamped
         stamped = PoseStamped()
         stamped.header = message.header

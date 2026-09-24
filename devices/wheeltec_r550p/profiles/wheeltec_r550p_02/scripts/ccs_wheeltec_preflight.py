@@ -33,8 +33,8 @@ def validate_profile(profile, workspace, native, device_ip, station_ip):
         raise ValueError('MQTT ground station mismatch')
     if config['udp_telemetry']['network']['destination_host'] != station_ip:
         raise ValueError('UDP ground station mismatch')
-    if config['video'].get('enabled') is not False:
-        raise ValueError('Video must remain disabled for this deployment')
+    if config['video'].get('enabled') and config['video'].get('image_topic') != '/camera/color/image_raw':
+        raise ValueError('Gemini RGB topic must be /camera/color/image_raw')
     if config['task_control']['timeouts']['utc_tolerance_seconds'] != 2.0:
         raise ValueError('Task UTC tolerance must remain two seconds')
     state = str(workspace / 'run/state/relocalization.json')
@@ -49,7 +49,7 @@ def validate_profile(profile, workspace, native, device_ip, station_ip):
     if any(value != maps for value in (adapter['navigation_map_root'], storage['map_root'], pgm['map_root'])):
         raise ValueError('Downloaded map paths must agree')
     if (adapter['navigation_launch_package'], adapter['navigation_launch_file']) != (
-            'epgeneral_task_control', 'wheeltec_ccs_2d_navigation.launch'):
+            'epgeneral_task_control', 'wheeltec_ccs_2d_navigation_v51.launch'):
         raise ValueError('CCS two-dimensional navigation entry is required')
     mapping = config['map_stream']
     extrinsics = native / 'src/wheeltec_tf_manager/config/extrinsics.yaml'
@@ -91,6 +91,9 @@ def validate_installation(args):
     import roslib.message
     import msgpack
     import paho.mqtt.client
+    import shutil
+    if shutil.which('bwrap') is None:
+        raise ValueError('bubblewrap is required to keep native FAST-LIO runtime writes inside CCS')
     config = validate_profile(args.profile, args.workspace, args.native_workspace,
                               args.device_ip, args.station_ip)
     packages = rospkg.RosPack()

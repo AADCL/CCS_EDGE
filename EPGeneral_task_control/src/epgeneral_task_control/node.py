@@ -180,6 +180,9 @@ class RosTaskControlNode(object):
         metadata = self.store.load(record.get("task_id", ""), record.get("subtask_id", ""))
         if metadata is None or int(metadata.get("revision", 0)) != int(record.get("revision", 0)):
             return
+        if record.get("state") == "failed" and not self.config.get("preparation_retry_on_failure", True):
+            self._set_state("failed")
+            return
         self._begin_preparation(dict(metadata, map_id=record.get("map_id", "")), "recovery")
 
     def _control_loop(self):
@@ -624,6 +627,8 @@ class RosTaskControlNode(object):
         state = str(message.state).lower()
         if state not in ("preparing", "ready", "failed"):
             return False
+        if preparation.state == "failed" and not preparation.retryable:
+            return True
         preparation.last_feedback_at = self.clock()
         preparation.last_publish_at = preparation.last_feedback_at
         preparation.message = str(message.message)
@@ -635,9 +640,11 @@ class RosTaskControlNode(object):
             self._set_state("ready")
         elif state == "failed":
             preparation.state = "failed"
-            preparation.retryable = preparation.error_code != "EMERGENCY_STOP_LATCHED"
+            preparation.retryable = (self.config.get("preparation_retry_on_failure", True)
+                                     and preparation.error_code != "EMERGENCY_STOP_LATCHED")
             self.mission_store.update_state(
-                preparation.identity["task_id"], preparation.identity["device_id"], "failed")
+                preparation.identity["task_id"], preparation.identity["device_id"], "failed",
+                preparation_error={"message": preparation.message, "error_code": preparation.error_code})
             self._set_state("failed")
         else:
             preparation.state = "preparing"

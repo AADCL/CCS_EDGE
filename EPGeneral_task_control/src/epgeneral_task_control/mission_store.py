@@ -94,7 +94,10 @@ class MissionStore(object):
         record = self.load(task_id, device_id)
         if record is None:
             return {"state": "no_task", "revision": None}
-        return {"state": record.get("state", "task_exists"), "revision": record.get("revision")}
+        result = {"state": record.get("state", "task_exists"), "revision": record.get("revision")}
+        if record.get("preparation_error"):
+            result.update(record["preparation_error"])
+        return result
 
     def latest(self, device_id):
         records = []
@@ -119,12 +122,16 @@ class MissionStore(object):
                 continue
         return None
 
-    def update_state(self, task_id, device_id, state):
+    def update_state(self, task_id, device_id, state, preparation_error=None):
         if state not in STATES:
             raise ValueError("invalid mission state")
         record = self.load(task_id, device_id)
         if record is None:
             return None
+        if preparation_error is not None:
+            record["preparation_error"] = preparation_error
+        elif state != "failed":
+            record.pop("preparation_error", None)
         record["state"] = state
         record["updated_at"] = _utc_now().isoformat() + "Z"
         directory = self.directory(task_id)

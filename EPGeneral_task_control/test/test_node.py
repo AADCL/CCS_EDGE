@@ -211,6 +211,34 @@ class NodeTests(unittest.TestCase):
         self.assertEqual(len(self.node.publisher.messages), sent)
         self.assertFalse(self.node.preparation.retryable)
 
+    def test_ugv004_failure_survives_queries_late_feedback_and_restart(self):
+        self.config['preparation_retry_on_failure'] = False
+        crc32, count = self.deliver()
+        self.node.handle_datagram(pack(self.config, 'task_commit', 'commit', {
+            'revision': 1, 'chunk_count': count, 'crc32': crc32}), self.config['ground_station_ip'])
+        feedback = SimpleNamespace(request_id='commit', task_id='task-1', subtask_id='sub-1',
+            device_id=self.config['device_id'], execution_id='', revision=1, state='failed',
+            waypoint_index=-1, waypoint_count=0, progress=0., position=SimpleNamespace(x=0,y=0,z=0),
+            error_code='NAVIGATION_STARTUP_TIMEOUT', message='move_base timeout; log=/ccs/nav.log')
+        self.node.feedback_callback(feedback)
+        sent = len(self.node.publisher.messages)
+        self.node.preparation.last_publish_at -= 60
+        self.node.watchdog()
+        feedback.state = 'ready'
+        self.node.feedback_callback(feedback)
+        self.node.handle_datagram(pack(self.config, 'negotiate_task', 'query', {}), self.config['ground_station_ip'])
+        summary = self.messages()[-1]['payload']
+        self.assertEqual(summary['state'], 'failed')
+        self.assertEqual(summary['error_code'], 'NAVIGATION_STARTUP_TIMEOUT')
+        self.assertIn('/ccs/nav.log', summary['message'])
+        self.node._recover_preparation()
+        self.assertEqual(len(self.node.publisher.messages), sent)
+        crc32, count = self.deliver(request_id='new-delivery')
+        self.node.handle_datagram(pack(self.config, 'task_commit', 'new-commit', {
+            'revision': 1, 'chunk_count': count, 'crc32': crc32}), self.config['ground_station_ip'])
+        self.assertEqual(self.node.preparation.request_id, 'new-commit')
+        self.assertEqual(self.node.publisher.messages[-1].action, FakeCommand.PREPARE)
+
     def test_redelivery_after_manual_reset_restarts_preparation(self):
         marker = self.write_emergency_latch()
         self.deliver(split=False)

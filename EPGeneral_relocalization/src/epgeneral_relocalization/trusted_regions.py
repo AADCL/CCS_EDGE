@@ -84,7 +84,18 @@ class TrustedRegionsReceiver(object):
                         or any(message[k] != self.identity[k] for k in ('map_id', 'device_id', 'session_id'))):
                     raise ValueError('trusted-region operation expired')
                 destination = os.path.join(directory, safe_id(message['device_id']) + '.xml')
-                atomic_write(destination, data)
+                bridge = getattr(self.ros, 'region_bridge', None) if self.config.get('trusted_regions_apply_to_ndt') else None
+                if self.config.get('trusted_regions_apply_to_ndt') and bridge is None:
+                    raise ValueError('TRUSTED_REGIONS_BACKEND_UNSUPPORTED')
+                previous = bridge.snapshot() if bridge else None
+                try:
+                    if bridge:
+                        bridge.apply(document)
+                    atomic_write(destination, data)
+                except Exception:
+                    if bridge:
+                        bridge.restore(previous)
+                    raise
                 self._regions_reply(message, 'ready')
                 self.logger.info('trusted_regions_saved map=%s device=%s revision=%s',
                                  message['map_id'], message['device_id'], document['revision'])

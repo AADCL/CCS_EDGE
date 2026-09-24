@@ -847,3 +847,16 @@ UAV 新部署采用独立八包工作空间，静态模式与飞行模式显式�
 ## 可选可信区域（重定位包 0.5.0）
 
 [可信区域](INTERFACE_REFERENCE.md#可选可信区域接收) 说明接收开关、文件路径、XML 格式及协议。缺少区域文件不会改变原重定位流程。
+
+
+## UGV_004 修复（2026-09-24）
+
+UGV_004 使用现有 `EPGeneral_relocalization` 0.6.0 内的 `ccs_wheeltec_localizer`，任务控制版本为 0.6.4；未新增 ROS 功能包。其他设备默认不编译 Wheeltec C++ 目标，也不启用新的失败重试策略。
+
+初始位姿触发 NDT，在不同的新鲜点云帧上通过收敛、fitness、位姿跳变和连续两帧确认后才报告成功；静止也能完成。可信区域不是初始定位或导航的前置条件。无区域时保留首次定位结果与里程计推算，持续发布有效 `map -> odom`，暂停后续自动 NDT 修正。健康输出 `/ccs/localization_valid` 及完整 `map -> odom -> base_link` 必须新鲜；默认单位变换和陈旧缓存不能代替真实接受结果。
+
+定位成功后可按原流程下发可信区域 XML。UGV_004 的 `trusted_regions.apply_to_ndt: true` 启用消费者确认桥接：校验地图、设备、会话、版本、map 坐标系及多边形后，将原子替换请求发布到 `/ndt_gate/set_regions`（`fast_lio_localization/AllowedRegions`）。只有 `/ndt_gate/regions` 回显相同时间戳令牌和实际区域集合后，平台才收到 `ready`；`/ndt_gate/status` 提供算法状态。非空区域启用区域内自动修正；空区域清空约束并暂停自动修正，定位状态保留。失败返回错误并尝试恢复原集合，不清除定位成功。切换地图重新启动唯一定位器，清除旧区域；不会自动载入上一地图的区域。ROS 话题不承载平台会话，桥接在地图会话锁内完成校验与确认；只能由该桥接写入。
+
+Gemini 336L 通过已安装的 `orbbec_camera/gemini_330_series.launch`（显式设置 RGB/深度 640×480、30 FPS，驱动旋转为 0） 启动 RGB/深度，不启动识别算法。根脚本监督相机与视频：检测新鲜 640×480 RGB/深度后启动 SRT 9000、30 FPS、180° 旋转。可复用经出图检查的外部相机，仅停止自己创建的子进程；缺失、超时、异常退出记为 `CAMERA_VIDEO_DEGRADED`，不停止其他服务。根脚本的重复启动由文件锁拒绝。优先使用根脚本；组合 bringup launch 仅用于手动集成，不提供根脚本的所有权/出图监督。
+
+UGV_004 配置 `timeouts.preparation_retry_on_failure: false`。准备保留 25 秒超时，检查健康与完整 TF；失败后保存状态、错误原因和导航日志位置，查询、迟到反馈和进程重启不会自动恢复准备。重新下发完整任务才开启新准备。日志位于 `logs/navigation/navigation-<map_id>.log`。验收只发送 PREPARE，不发送 SCHEDULE 或 move_base 目标。

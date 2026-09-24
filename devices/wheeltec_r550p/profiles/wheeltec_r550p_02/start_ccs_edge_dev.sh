@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 WORKSPACE="${CCS_EDGE_WORKSPACE:-/home/nrc15/ccs_edge_ws}"
 NATIVE_WORKSPACE="${CCS_LIVOX_SETUP:-/home/nrc15/livox_fastlio/devel/setup.bash}"
@@ -17,6 +18,8 @@ READINESS="${WORKSPACE}/scripts/ccs_wheeltec_readiness.py"
 CHECK_ONLY=false
 SHUTDOWN_STARTED=false
 ROSCORE_PID=""
+CAMERA_PID=""
+CAMERA_REPORTED=false
 LAUNCH_NAMES=(base mqtav udp_telemetry map_stream relocalization task_control)
 NODE_NAMES=(/wheeltec_robot /epgeneral_mqtav /epgeneral_udp_telemetry /epgeneral_map_stream /epgeneral_relocalization /epgeneral_task_control)
 PIDS=("" "" "" "" "" "")
@@ -74,6 +77,7 @@ shutdown_all() {
   [[ "${SHUTDOWN_STARTED}" == true ]] && return
   SHUTDOWN_STARTED=true; trap - INT TERM EXIT; set +e
   record "shutdown started exit_code=${exit_code}"
+  if [[ -n "${CAMERA_PID}" ]]; then stop_process "${CAMERA_PID}" || true; fi
   # Task adapter cancels its own goals/navigation before drivers and master stop.
   if [[ -n "${PIDS[5]}" ]]; then
     if stop_process "${PIDS[5]}"; then PIDS[5]=""; rm -f "${STATE_DIR}/task_control.pid"; else exit_code=1; fi
@@ -101,6 +105,8 @@ source "${NATIVE_WORKSPACE}/devel/setup.bash" --extend
 source "${WORKSPACE}/devel/setup.bash" --extend
 export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
 export ROS_IP="${ROS_IP_VALUE}" PYTHONDONTWRITEBYTECODE=1
+export ROS_HOME="${WORKSPACE}/run/ros_home"
+mkdir -p "${ROS_HOME}"
 command -v setsid >/dev/null && command -v flock >/dev/null || fail "setsid/flock are required."
 if [[ "${CHECK_ONLY}" != true ]]; then
   mkdir -p "${STATE_DIR}"
@@ -113,8 +119,16 @@ run_quiet python3 "${PREFLIGHT}" --profile "${PROFILE_CONFIG_DIR}" --workspace "
 ip -o -4 addr show dev wlan0 | awk '{print $4}' | grep -Fxq "${ROS_IP_VALUE}/24" || fail "Wheeltec LAN address is missing."
 ip -o -4 addr show dev eth0 | awk '{print $4}' | grep -Fxq '192.168.123.5/24' || fail "Livox host address is missing."
 ping -I eth0 -c 1 -W 2 192.168.123.124 >/dev/null || fail "MID360 is unreachable."
-run_quiet python3 "${WORKSPACE}/scripts/ccs_sntp_sync.py" --server "${NTP_SERVER}" --retries 2 --availability-only || fail "Platform SNTP unavailable at ${NTP_SERVER}:123."
-gst-inspect-1.0 srtsink >/dev/null 2>&1 && gst-inspect-1.0 x264enc >/dev/null 2>&1 || fail "Installed video dependencies are incomplete."
+# timesyncd adjusts the clock; availability alone also succeeds with a 1970 clock.
+systemctl is-active --quiet systemd-timesyncd || fail "Time synchronization service is inactive. Run: sudo systemctl enable --now systemd-timesyncd"
+report INFO "Waiting for clock synchronization with ${NTP_SERVER} (maximum 45 seconds)."
+if time_sync_output="$(python3 "${WORKSPACE}/scripts/ccs_sntp_sync.py" --server "${NTP_SERVER}" --wait-sync 45 --max-offset 0.5 2>&1)"; then
+  report OK "Clock synchronized: ${time_sync_output}"
+else
+  printf '%s\n' "${time_sync_output}" >&2
+  fail "Clock is not synchronized with ${NTP_SERVER}; refusing to start ROS services."
+fi
+gst-inspect-1.0 srtsink >/dev/null 2>&1 && gst-inspect-1.0 x264enc >/dev/null 2>&1 || report WARN "Video dependencies incomplete; camera/video may be degraded."
 
 launch() {
   local index="$1" name pid attempt; shift
@@ -138,7 +152,7 @@ if [[ "${CHECK_ONLY}" != true ]]; then
     existing_nodes="$(timeout 5 rosnode list)"
     for node in "${NODE_NAMES[@]}" /livox_lidar_publisher2 /epgeneral_navigation_task_adapter \
       /laserMapping /wheeltec_pointcloud_mapper /wheeltec_tf_manager /wheeltec_pose_adapter \
-      /wheeltec_global_localizer /wheeltec_cloud_adapter /move_base; do
+      /wheeltec_global_localizer /ccs_wheeltec_localizer /wheeltec_cloud_adapter /move_base; do
       grep -Fxq -- "${node}" <<<"${existing_nodes}" && fail "Existing ${node}; stop its owner before starting CCS."
     done
   fi
@@ -151,7 +165,8 @@ if [[ "${CHECK_ONLY}" != true ]]; then
   trap 'shutdown_all 130' INT
   trap 'shutdown_all 143' TERM
   trap 'shutdown_all $?' EXIT
-  record "startup pid=$$ UGV_004 video=disabled"
+  record "startup pid=$$ UGV_004 video=optional"
+  record "time synchronization: ${time_sync_output}"
   if ! master_exists; then
     setsid roscore >"${LOG_DIR}/roscore.log" 2>&1 </dev/null &
     ROSCORE_PID=$!; printf '%s\n' "${ROSCORE_PID}" >"${STATE_DIR}/roscore.pid"
@@ -182,9 +197,15 @@ if [[ "${CHECK_ONLY}" == true ]]; then
   exit 0
 fi
 ros_node_exists /epgeneral_navigation_task_adapter || fail "Navigation task adapter is absent."
-report OK "UGV_004 non-video services are running. Mapping/localization/navigation remain task-managed."
+setsid python3 -u "${WORKSPACE}/scripts/ccs_camera_supervisor.py" --profile "${PROFILE_CONFIG_DIR}" --log-dir "${LOG_DIR}" --owner-pid "$$" >"${LOG_DIR}/camera_supervisor.log" 2>&1 </dev/null &
+CAMERA_PID=$!
+report OK "UGV_004 services running; optional RGBD/SRT startup is logged in camera_supervisor.log."
 while true; do
   sleep 2
+  if [[ "${CAMERA_REPORTED}" == false ]] && ! owned_process_alive "${CAMERA_PID}"; then
+    report WARN "Camera/video degraded; inspect ${LOG_DIR}/camera_supervisor.log. Other services continue."
+    CAMERA_REPORTED=true
+  fi
   for index in "${!PIDS[@]}"; do
     owned_process_alive "${PIDS[index]}" || fail "${LAUNCH_NAMES[index]} exited or ownership changed."
   done
