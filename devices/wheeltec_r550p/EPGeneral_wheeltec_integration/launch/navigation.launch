@@ -1,0 +1,8 @@
+<launch>
+  <arg name="map_name"/><arg name="map_dir"/><arg name="nav_map_yaml"/>
+  <arg name="odom_topic" default="/odom"/><arg name="cmd_vel_topic" default="/wheeltec_driver/cmd_vel"/>
+  <node pkg="epgeneral_wheeltec_integration" type="native_navigation.py" name="ccs_wheeltec_navigation" required="true" output="screen">
+    <param name="map_name" value="$(arg map_name)"/><param name="map_dir" value="$(arg map_dir)"/>
+    <param name="odom_topic" value="$(arg odom_topic)"/><param name="cmd_vel_topic" value="$(arg cmd_vel_topic)"/>
+  </node>
+</launch>

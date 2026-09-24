@@ -12,7 +12,7 @@
 6. A8 适配过程中发现自动硬件解码无帧、ARM64 libgomp TLS 冲突及 SRT 延迟单位混用；改显式软件解码、视频节点局部预加载和毫秒属性。120ms Wi-Fi 传输出现损坏包，对照500ms更稳定，因此调整设备及平台缓存。
 7. 独立 ROS master 11327 运行模拟 MAVROS、真实原生 C++ 控制器及 CCS 适配器；11328 验证模拟保存服务、地图变换、定位初值及新鲜度。生产 master 11311 仅运行静态观察模式。
 8. 采集真实 MAVROS、IMU、雷达、MQTT、UDP 和 SRT 证据；缺失真实位姿如实报告。测试 RTSP 中断16秒、超时重连，未触发云台运动、实机解锁、起飞或建图定位闭环。
-9. 最终重新同步文件清单、执行回归、归档日志并停止本次自有进程。最终结果和限制见[部署结果报告](DEPLOYMENT_REPORT.md)。
+9. 最终重新同步文件清单、执行回归、归档日志并停止本次自有进程。最终结果和限制保留在本记录及本地部署证据中。
 
 证据统一位于主项目 artifacts/uav001_deployment_20260920/；build*.log 保留构建重试，isolated*.log 保留测试修复历史，最终结论使用报告指定的最终日志，不以失败前的中间结果替代。凭据未写入文件。
 
@@ -39,3 +39,43 @@
 无参数入口实测进入 mapping 模式，mapping_enabled=true、execution_enabled=false；10 个必需节点齐全，/mavros/setpoint_position/local 发布者为 0。阶段服务对 controller_start 返回“mapping mode: flight control disabled”，未生成 controller_process.json。地面站 192.168.50.101 随后发送唯一 prepare_mapping；端侧记录 pointcloud、imu、artifact_storage、map_generation 四项 available=True，并返回 accepted=True。6 秒后同会话 abort_mapping 返回 accepted=True，记录“session aborted without artifacts”。本轮没有发送 start_mapping、没有创建 mapping_process.json、没有调用地图保存，也没有触发解锁、起飞或运动。
 
 最初一次端侧全量地图流测试把 UAV 生产 YAML 强制注入多设备通用夹具，导致 Scout/Ground-Air 用例因 profile 前置条件不成立而失败；该结果保留在 mapping_fix_static_tests.log。修正后的 mapping_fix_static_tests_corrected.log 仅运行本次改动直接相关的端侧用例并通过；全仓布局下的完整地图流回归在本地通过。最终停止本次功能栈，相关进程和监听端口全部释放，最终审计写入 validation/mapping_fix_final_audit.json。
+
+## 2026-09-22 启动结构对齐 UGV_004
+
+读取 UGV_004 端侧交付文档和 `wheeltec_r550p_02` 启动入口后，将 UAV_001 收敛为相同的工作空间根启动形式：先执行 `./start_ccs_edge_dev.sh --check`，再无参数前台启动，使用 `Ctrl+C` 有序停止。UAV 的 `--static`、`--mapping`、`--flight` 权限门禁继续保留；无参数仍为不开放飞行控制的 mapping 模式。
+
+运行文件从 `deploy/uav_001` 平铺到 `config/uav_001`、`launch` 和 `scripts`。根 launch 向 MQTT、UDP、视频、地图、重定位、任务协调器和 UAV 任务适配器显式传入同一 profile 配置，避免运行副本与包内共享配置分叉。PID、锁和启动记录统一放入 `run/managed`，会话目录采用 UGV_004 的 UTC 纳秒时间加 PID 命名。
+
+端侧旧嵌套 profile 和三份重复 UAV 文档在备份后从活动工作空间移除，改为单一 `docs/uav_001/DEPLOYMENT.md`。仓库保留当前指南与本历史记录，删除内容重复的独立结果报告；完整历史证据仍在 `artifacts/uav001_deployment_20260920` 和 `artifacts/uav001_update_20260922`。
+
+实际迁移于 2026-09-22 完成。覆盖和删除前的文件及部署清单备份到端侧
+`validation/startup_alignment_backup_20260922T034932484192Z`。安装 14 个平铺启动文件，
+移除 13 个旧 profile 文件、三份端侧重复 UAV 文档和旧 `run/supervisor.lock`；部署清单
+仍为 190 项。端侧 `--check` 通过且 `logs`、`run` 内容和时间戳摘要不变，launch 静态展开
+12 个节点并保持 `mapping_enabled=true`、`execution_enabled=false`，10 项 Linux 隔离生命
+周期测试通过。验收结束后没有 UAV CCS 进程，未启动真实建图、重定位或飞行控制。
+
+## 2026-09-22 重定位与任务功能启用
+
+按运行授权执行 `./start_ccs_edge_dev.sh --flight`，将 UAV_001 从默认建图模式有序切换到
+同时开放重定位阶段管理和任务执行的 flight 模式。切换前验证飞控未解锁、已落地、控制器
+未运行且无飞行/急停锁；旧会话通过根启动脚本有序停止后启动新会话。旧运行记录和陈旧的
+建图进程记录备份到
+`validation/feature_enable_backup_20260922T042704.411642654Z`，未配置自启动。
+
+启用后启动记录为 `mode=flight`、`mapping_enabled=true`、`execution_enabled=true`，10 个必需
+ROS 节点正常，任务控制 UDP 14563 和重定位控制 UDP 14565 正常监听。最终只读审计确认
+MAVROS 已连接、飞控保持未解锁、`landed_state=1`、阶段为空闲、控制器未运行，且
+`/mavros/setpoint_position/local` 发布者为 0。端侧可访问地面站 192.168.50.101 和平台重定位
+HTTP 14601。本次仅启用功能通道，未创建重定位会话、未准备或执行任务、未触发解锁或运动。
+
+指控平台新增 `ducted_uav` 重定位 profile（`vision_pose`、`odom`），将 UAV_001 设置为可用并
+保留活动地图 `7c48e462-a66d-4030-aacf-0a08abd8b5c9`。平台重启后任务 UDP 14564、重定位 UDP
+14566 和重定位 HTTP 14601 正常监听；重定位、设备配置、任务服务、任务协议和任务页面共
+60 项定向测试通过。完整启用和安全审计证据位于
+`artifacts/uav001_startup_alignment_20260922/enable_features_*.log`。
+
+端侧唯一启动文档同步后，原文档和部署清单备份到
+`validation/feature_enable_doc_backup_20260922T045106.698840694Z`。最终审计逐项验证部署清单
+中的 190 个文件，SHA-256、字节数和权限全部一致；指控平台日志确认 UAV_001 MQTT 会话已
+重新连接并持续收到遥测。

@@ -234,6 +234,7 @@ class ScoutNavigationAdapter(object):
         self.execution = None
         self.prepared = None
         self.navigation_process = None
+        self.navigation_guard = None
         self.navigation_log = None
         self.navigation_log_path = ""
         self.navigation_map_id = None
@@ -394,7 +395,7 @@ class ScoutNavigationAdapter(object):
             while time.monotonic() < deadline and not self.stop_event.is_set():
                 if self._process_exited():
                     raise ScoutAdapterError(self._navigation_exit_message(startup=True))
-                if client.wait_for_server(self.rospy.Duration(0.2)):
+                if client.wait_for_server(self.rospy.Duration(0.2)) and self._native_navigation_ready(payload):
                     if self.config.get("require_fresh_tf", False):
                         self._map_pose()
                     with self.lock:
@@ -416,6 +417,26 @@ class ScoutNavigationAdapter(object):
                     self.prepared = None
                     self.client = None
                 self._stop_navigation()
+
+    def _native_navigation_ready(self, payload):
+        native = self.config.get("native_map", {})
+        if not native.get("enabled", False):
+            return True
+        try:
+            state = load_localized_map_state(self.config["active_map_state_file"])
+            if state["map_id"] != payload["map_id"]:
+                raise ScoutAdapterError("localized map changed during navigation preparation")
+            with open(os.path.expanduser(native["readiness_file"])) as stream:
+                ready = json.load(stream)
+            if (ready.get("map_id") != payload["map_id"] or ready.get("ready") is not True
+                    or not 0 <= time.monotonic() - float(ready["monotonic"]) <= 2):
+                return False
+        except (OSError, KeyError, TypeError, ValueError):
+            return False
+        map_yaml = os.path.join(os.path.expanduser(self.config["navigation_map_root"]),
+                                payload["map_id"], "native_v60", "map_raw.yaml")
+        validate_waypoints_on_navigation_map(payload, map_yaml)
+        return True
 
     def _schedule(self, command):
         with self.lock:
@@ -458,6 +479,33 @@ class ScoutNavigationAdapter(object):
         if self.config.get("navigation_management", "managed") == "attach":
             self.rospy.loginfo("attaching to navigation for map %s", map_id)
             return None
+        self._acquire_navigation_guard()
+        try:
+            return self._launch_navigation(map_id)
+        except Exception:
+            self._release_navigation_guard()
+            raise
+
+    def _acquire_navigation_guard(self):
+        path = self.config.get("navigation_guard_file")
+        if not path:
+            return
+        import fcntl
+        guard = open(os.path.expanduser(path), "a+")
+        try:
+            fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            guard.close()
+            raise ScoutAdapterError("navigation ownership is unavailable", "BUSY")
+        self.navigation_guard = guard
+
+    def _release_navigation_guard(self):
+        guard = self.navigation_guard
+        self.navigation_guard = None
+        if guard is not None:
+            guard.close()
+
+    def _launch_navigation(self, map_id):
         map_dir = os.path.join(os.path.expanduser(self.config["navigation_map_root"]), map_id)
         map_yaml = os.path.join(map_dir, self.config["navigation_map_yaml"])
         command = ["roslaunch", self.config["navigation_launch_package"],
@@ -752,6 +800,7 @@ class ScoutNavigationAdapter(object):
                 self.navigation_log.close()
                 self.navigation_log = None
             self.navigation_log_path = ""
+            self._release_navigation_guard()
 
     def _feedback(self, command, state, waypoint_index, progress, message, error_code="", include_pose=True):
         if self.feedback_pub is None:
@@ -830,15 +879,23 @@ class ScoutNavigationAdapter(object):
     def _finish_control(self, command, state, waypoint_index, progress, message, error_code):
         if self.control_safety is not None:
             errors = []
+            direct_driver = self.config.get("control_authority", {}).get("safety_gate_enabled", True) is False
+            stop_applied = False
             if self.client is not None:
                 try:
                     self.client.cancel_all_goals()
+                    if direct_driver and self.client.get_state() in (0, 1, 6, 7):
+                        if (not self.client.wait_for_result(self.rospy.Duration(1.0)) or
+                                self.client.get_state() in (0, 1, 6, 7)):
+                            errors.append("goal cancellation was not confirmed")
                 except Exception as exc:
                     errors.append("goal cancellation failed: %s" % exc)
             try:
-                if (terminal_failure_requires_fault_stop(state, error_code) and
+                if ((terminal_failure_requires_fault_stop(state, error_code) or
+                     (direct_driver and errors)) and
                         self.control_safety.stop_client is not None):
                     self.control_safety.stop(message)
+                    stop_applied = True
                 else:
                     self._publish_zero()
                     self.control_safety.disarm()
@@ -848,13 +905,14 @@ class ScoutNavigationAdapter(object):
             if errors:
                 state, progress, message = "failed", 0.0, message + "; stop: " + "; ".join(errors)
                 error_code = error_code or "CONTROL_STOP_FAILED"
-                try:
-                    if self.control_safety.stop_client is not None:
-                        self.control_safety.stop(message)
-                    else:
-                        self.control_safety.latch(message)
-                except (ValueError, IOError, OSError) as exc:
-                    message += "; " + str(exc)
+                if not stop_applied:
+                    try:
+                        if self.control_safety.stop_client is not None:
+                            self.control_safety.stop(message)
+                        else:
+                            self.control_safety.latch(message)
+                    except (ValueError, IOError, OSError) as exc:
+                        message += "; " + str(exc)
             elif state == "completed" and self.control_safety.latched:
                 state, message, error_code = "failed", "emergency stop is latched", "EMERGENCY_STOP_LATCHED"
             self.control_armed = False

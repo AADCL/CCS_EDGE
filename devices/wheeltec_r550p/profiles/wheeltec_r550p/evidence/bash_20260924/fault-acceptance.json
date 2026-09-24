@@ -1,0 +1,8 @@
+{
+  "required_child_failure_exit": 1,
+  "external_master_survived": true,
+  "remaining_nodes": [
+    "/rosout"
+  ],
+  "success": true
+}

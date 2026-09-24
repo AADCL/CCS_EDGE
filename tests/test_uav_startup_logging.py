@@ -79,8 +79,8 @@ class SupervisorTests(unittest.TestCase):
         self.assertFalse((self.mod.ROOT / "logs").exists())
 
     def test_stale_stop_does_not_signal_any_process(self):
-        record = self.mod.ROOT / "run/supervisor.json"
-        record.parent.mkdir()
+        record = self.mod.ROOT / "run/managed/startup.json"
+        record.parent.mkdir(parents=True)
         record.write_text(json.dumps({"pid": 999999999}))
         with mock.patch.object(self.mod.os, "kill") as kill:
             self.assertEqual(self.invoke("--stop"), 0)
@@ -145,7 +145,8 @@ class SupervisorTests(unittest.TestCase):
             code = self.invoke("--flight" if airborne else "--static")
         self.assertEqual(spawn.call_count, 2)
         self.assertGreater(kill.call_count, 0)
-        self.assertFalse((self.mod.ROOT / "run/supervisor.json").exists())
+        self.assertFalse((self.mod.ROOT / "run/managed/startup.json").exists())
+        self.assertFalse((self.mod.ROOT / "run/managed/startup.pid").exists())
         return code, (self.mod.ROOT / "logs/latest").resolve()
 
     def test_normal_lifecycle_has_durable_summary_and_no_poll_spam(self):

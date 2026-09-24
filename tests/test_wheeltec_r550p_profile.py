@@ -66,10 +66,15 @@ class WheeltecR550pProfileTests(unittest.TestCase):
         args = {item.attrib["name"]: item.attrib.get("default") for item in launch.findall("arg")}
         self.assertEqual(args["enable_video"], "true")
         script = (PROFILE / "start_ccs_edge_dev.sh").read_text(encoding="utf-8")
+        self.assertNotIn("ugv003_supervisor.py", script)
+        self.assertIn("setsid roslaunch", script)
+        self.assertIn("shutdown_all", script)
+        script += (ROOT / "devices/wheeltec_r550p/EPGeneral_wheeltec_integration/src/epgeneral_wheeltec_integration/readiness.py").read_text(encoding="utf-8")
+        self.assertNotIn("wheeltec_livox_base.launch", script)
         for value in (
             "/home/nrc19/ccs_edge_ws", "/home/nrc19/livox_fastlio/devel/setup.bash",
-            "wheeltec_livox_base.launch", "/PowerVoltage", "/livox/lidar",
-            "wheeltec_task_control.launch", "publish_zero_velocity",
+            "base.launch", "/PowerVoltage", "/livox/lidar",
+            "wheeltec_task_control.launch", "/wheeltec_robot/set_autonomous",
             "CCS_ENABLE_VIDEO", "manage_ccs_video.sh", "/wheeltec_control/enable",
         ):
             self.assertIn(value, script)

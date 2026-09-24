@@ -474,6 +474,19 @@ cd /home/nrc19/ccs_edge_ws/safety_patch
 <a id="deploy-records-ugv-004-deployment-md-ugv_004-部署与验收记录"></a>
 # UGV_004 部署与验收记录
 
+## 2026-09-23：修复一键启动时间同步
+
+- 实机：`nrc15@192.168.50.123`，工作空间 `/home/nrc15/ccs_edge_ws`。
+- 根因：systemd-timesyncd 为 disabled/inactive，系统时间为 1970-01-01；地面站 SNTP 正常，但旧启动脚本使用 `--availability-only`，未发现约 17.9 亿秒的偏差。
+- 恢复 `systemctl enable --now systemd-timesyncd`；现有授时源保持 `192.168.50.101`，已实测 `NTP=yes`、`NTPSynchronized=yes`、service enabled/active。
+- 同步部署 profile 的启动脚本与 `scripts/ccs_sntp_sync.py`：启动前等待实测偏差 ≤0.5 秒，45 秒超时阻断；使用单调时钟计时并丢弃本机校时跳变期间的测量。
+- 验证：12 项针对性 unittest 通过；实机 Bash/Python 语法检查通过；`start_ccs_edge_dev.sh --check` 全部通过且未启动节点，偏差 0.019 秒；最终采样偏差 0.015 秒；不可用授时目标返回非零退出码。
+- 未执行整机重启、完整 ROS 业务启动或运动验收。开机启用状态已核对，尚未做断电重启实测。
+- 修改前备份：`/home/nrc15/ccs_edge_ws/backups/UGV_004-timesync-20260923/`。保留原脚本、授时配置目录、服务状态与修复前日期。回滚脚本可从此恢复；服务建议保持启用，恢复旧 disabled 状态会重现问题。
+- SHA-256：启动脚本 `3cabf278e57901e7732aa12036e72bc24935cd790cb8af09a6ede9ca0cd45682`；SNTP helper `9aeb2b523d634e1b235d0f02558380b414f306762d3adbe0542cd6b405a4a9b3`；已核对本地与实机一致。
+- 现场证据存放于 CCS_dev 的 `artifacts/ugv004_timesync_20260923/`。
+
+
 <a id="deploy-records-ugv-004-deployment-md-当前入口"></a>
 ## 当前入口
 
@@ -593,3 +606,13 @@ cd /home/nrc15/ccs_edge_ws
 
 
 UGV_004 本次修复见 [2026-09-24 部署记录](UGV004_FIX_20260924.md)。
+
+## 2026-09-24 UGV_003 一键启动主链对齐 UGV_004
+
+读取 UGV_004 实机脚本后，将 UGV_003 从 Bash 转交 Python Supervisor 改为 Bash 直接 setsid roslaunch、PID 数组、flock 和 INT/TERM/EXIT trap。删除端侧及本机 ugv003_supervisor.py，保留执行完即退出的预检、SNTP 和消息检查工具。UGV_003 的 V6 集成、受保护速度链、可选视频及原生 FAST_LIO 使用方式保持有效。
+
+本机 Linux 与端侧各 21 项集成回归通过，本机 profile 6 项通过。实机预检、默认含视频启动、Bash 子进程归属、重复启动拒绝、Ctrl+C 收尾和必需服务故障收尾均通过；独立 ROS Master 不受清理。验收没有发运动目标，最终无遗留 ROS 进程。原生工作区 7,507 项摘要完全一致，本次零新增、零删除、零修改。
+
+冷启动实测时间为 1970 年且地面站 NTP 未运行时正确拒绝启动；临时启动现有地面站授时服务后 timesyncd 自动校时。常规使用应先启动地面站 NTP。未修改地面站源码、系统授时或网络配置。UGV_004 收尾期间出现外部相机监督增量，已记录对照版本变化，本任务未向 UGV_004 写文件。
+
+备份：`/home/nrc19/ccs_edge_ws/backups/ugv003_bash_20260924`。对比、精确清单、证据与回滚见 [Bash 启动说明](../../../devices/wheeltec_r550p/profiles/wheeltec_r550p/UGV_003_BASH_STARTUP.md)。

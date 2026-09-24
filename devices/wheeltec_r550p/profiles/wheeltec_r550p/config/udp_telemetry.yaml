@@ -72,8 +72,8 @@ descriptors:
   source:
     kind: pgm_file
     topic: /ccs/relocalization/pgm_file
-    state_file: /home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/relocalization.json
-    map_root: /home/nrc19/livox_fastlio/maps/ccs_download
+    state_file: /home/nrc19/ccs_edge_ws/run/state/relocalization.json
+    map_root: /home/nrc19/ccs_edge_ws/maps/download
     mode: file_status
     state_field: map_id
     path_template: '{map_id}/map.pgm'

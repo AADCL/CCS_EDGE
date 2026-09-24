@@ -123,7 +123,7 @@ rospack find epgeneral_device_config
 | Go2 | `go2_edu`、`go2_robot2`、`go2_robot3` | 七公共包；Robot2/3 另加 Go2 integration | [部署指南](documents/devices/go2/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/go2/DEPLOYMENT_RECORD.md) |
 | Scout Mini | `scout_mini` | 七公共包 | [部署指南](documents/devices/scout_mini/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/scout_mini/DEPLOYMENT_RECORD.md) |
 | Wheeltec R550P | `wheeltec_r550p`、`wheeltec_r550p_02` | 七公共包 | [部署指南](documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md) |
-| UAV | `uav_001` | 七公共包，另加 UAV integration | [部署指南](documents/devices/uav/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/uav/DEPLOYMENT_RECORD.md) · [部署报告](documents/devices/uav/DEPLOYMENT_REPORT.md) |
+| UAV | `uav_001` | 七公共包，另加 UAV integration | [部署指南](documents/devices/uav/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/uav/DEPLOYMENT_RECORD.md) |
 | Ground-Air AGV | `ground_air_agv` | 七公共包，另加 Ground-Air control | [部署指南](documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/ground_air_agv/DEPLOYMENT_RECORD.md) |
 
 配置、部署脚本、适配 launch、补丁与校验文件统一位于 `devices/<机型>/profiles/<profile>/`。

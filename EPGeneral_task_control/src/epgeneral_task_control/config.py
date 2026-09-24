@@ -181,9 +181,14 @@ def load_config(task_path, device_path):
                         "adapter.reset_control_on_emergency_clear must be boolean")
             for key in (
                     "navigation_cmd_vel_topic", "navigation_odom_topic",
-                    "navigation_log_directory"):
+                    "navigation_log_directory", "navigation_guard_file"):
                 if key in adapter:
                     _text(adapter, key, "adapter." + key)
+            native = adapter.get("native_map", {})
+            if not isinstance(native, dict) or type(native.get("enabled", False)) is not bool:
+                raise ConfigError("adapter.native_map.enabled must be boolean")
+            if native.get("enabled", False):
+                _text(native, "readiness_file", "adapter.native_map.readiness_file")
             authority = adapter.get("control_authority")
             if authority is not None:
                 if not isinstance(authority, dict):
@@ -192,9 +197,20 @@ def load_config(task_path, device_path):
                         "state_file", "odom_topic", "localization_ok_topic",
                         "enabled_topic", "driver_enabled_topic",
                         "driver_enable_service", "driver_stop_service",
-                        "driver_reset_service", "safety_arm_service", "safety_stop_service",
-                        "safety_reset_service"):
+                        "driver_reset_service"):
                     _text(authority, key, "adapter.control_authority." + key)
+                safety_keys = ("safety_arm_service", "safety_stop_service", "safety_reset_service")
+                if type(authority.get("safety_gate_enabled", True)) is not bool:
+                    raise ConfigError("adapter.control_authority.safety_gate_enabled must be boolean")
+                if authority.get("safety_gate_enabled", True):
+                    for key in safety_keys:
+                        _text(authority, key, "adapter.control_authority." + key)
+                elif any(key in authority for key in safety_keys):
+                    raise ConfigError("disabled safety gate must not declare safety services")
+                if type(authority.get("driver_auto_acquire", False)) is not bool:
+                    raise ConfigError("adapter.control_authority.driver_auto_acquire must be boolean")
+                if authority.get("driver_auto_acquire", False):
+                    _text(authority, "driver_odom_topic", "adapter.control_authority.driver_odom_topic")
                 _number(authority.get("state_publish_hz", 10.0),
                         "adapter.control_authority.state_publish_hz", 1.0, 100.0)
                 _number(authority.get("odom_timeout_seconds", 1.0),

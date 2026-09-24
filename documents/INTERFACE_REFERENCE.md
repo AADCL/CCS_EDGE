@@ -744,7 +744,9 @@ Ground-Air 设备适配 launch 还提供：manual_mapping_control/relocalization
 | --- | --- | --- |
 | `CCS_EDGE_WORKSPACE` | 全部；见 README 工作空间表 | CCS 工作空间根目录 |
 | `CCS_EDGE_PROFILE_CONFIG_DIR` | 全部；工作空间/config/profile | 运行 YAML 目录；仅 legacy Go2 先尝试脚本旁 config/device.yaml，Robot2/3 直接使用各自 profile |
-| `CCS_ROS_IP` | Go2 legacy .100、Robot2 .111、Robot3 .112、Scout .120、Wheeltec .122、AGV .130；前缀 192.168.50 | ROS 本机地址 |
+| `CCS_EDGE_PROFILE_LAUNCH_DIR` | UAV_001；默认工作空间/launch | UAV 根启动 launch 目录 |
+| `CCS_EDGE_PROFILE_SCRIPT_DIR` | UAV_001；默认工作空间/scripts | UAV 预检、就绪和 supervisor 脚本目录 |
+| `CCS_ROS_IP` | Go2 legacy .100、Robot2 .111、Robot3 .112、Scout .120、Wheeltec .122、AGV .130、UAV_001 .140；前缀 192.168.50 | ROS 本机地址 |
 | `CCS_ENABLE_VIDEO` | Wheeltec；1 | 1 时由视频管理脚本启动 Gemini 336L/SRT；设为 0 跳过视频且不影响基础服务 |
 | `CCS_GROUND_STATION_IP` | Go2/Scout/Wheeltec；192.168.50.101 | 授时默认目标及 UDP 覆盖；Ground-Air 脚本不提供此变量 |
 | `CCS_NTP_SERVER` | 前三者默认地面站变量；AGV 默认 192.168.50.101 | 预检要求的授时服务器 |

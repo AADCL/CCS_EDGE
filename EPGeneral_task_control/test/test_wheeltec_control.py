@@ -64,6 +64,24 @@ class WheeltecAuthorityTests(unittest.TestCase):
             {"std_srvs.srv": self.responses},
         )
 
+    def test_native_auto_release_keeps_gate_eligible_only_with_fresh_driver(self):
+        self.node.config["driver_auto_acquire"] = True
+        self.node.desired_enabled = True
+        self.node.driver_enabled = False
+        self.node.driver_received_at = 99.5
+        self.node.enabled_pub = Mock()
+        msgs = types.SimpleNamespace(Bool=lambda **kw: types.SimpleNamespace(**kw))
+        with patch.dict("sys.modules", {"std_msgs.msg": msgs}), patch.object(self.node, "_localized", return_value=True), patch("epgeneral_task_control.wheeltec_control.time.monotonic", return_value=100.0):
+            WheeltecControlAuthority._publish_state(self.node)
+            self.assertTrue(self.node.enabled_pub.publish.call_args[0][0].data)
+            self.node.driver_received_at = 98.0
+            WheeltecControlAuthority._publish_state(self.node)
+            self.assertFalse(self.node.enabled_pub.publish.call_args[0][0].data)
+            self.node.driver_received_at = 99.5
+            self.node.desired_enabled = False
+            WheeltecControlAuthority._publish_state(self.node)
+            self.assertFalse(self.node.enabled_pub.publish.call_args[0][0].data)
+
     def test_enable_checks_localization_then_arms_driver_and_gate(self):
         with patch.object(self.node, "_localized", return_value=True), self.modules():
             result = self.node._enable_callback(types.SimpleNamespace(data=True))
@@ -140,6 +158,39 @@ class WheeltecAuthorityTests(unittest.TestCase):
             result = self.node._reset_callback(object())
         self.assertFalse(result.success)
         self.assertIn("driver authority reset refused", result.message)
+
+    def test_driver_only_mode_uses_chassis_services_for_full_lifecycle(self):
+        self.node.config["safety_gate_enabled"] = False
+        self.node.safety_reset = self.node.safety_arm = self.node.safety_stop = None
+        with patch.object(self.node, "_localized", return_value=True), self.modules():
+            self.assertTrue(self.node._enable_callback(types.SimpleNamespace(data=True)).success)
+            self.assertTrue(self.node._enable_callback(types.SimpleNamespace(data=False)).success)
+            self.assertTrue(self.node._stop_callback(object()).success)
+            self.assertTrue(self.node._reset_callback(object()).success)
+        self.node.driver_enable.assert_any_call(True)
+        self.node.driver_enable.assert_any_call(False)
+        self.node.driver_stop.assert_called_once_with()
+        self.node.driver_reset.assert_called_once_with()
+        self.assertFalse(self.node.desired_enabled)
+
+    def test_driver_only_enable_failure_latches_chassis_stop(self):
+        self.node.config["safety_gate_enabled"] = False
+        self.node.safety_reset = self.node.safety_arm = self.node.safety_stop = None
+        self.node.driver_enable.return_value = response(False, "authority denied")
+        with patch.object(self.node, "_localized", return_value=True), self.modules():
+            result = self.node._enable_callback(types.SimpleNamespace(data=True))
+        self.assertFalse(result.success)
+        self.node.driver_stop.assert_called_once_with()
+        self.assertFalse(self.node.desired_enabled)
+
+    def test_driver_only_stop_reports_driver_failure(self):
+        self.node.config["safety_gate_enabled"] = False
+        self.node.safety_stop = None
+        self.node.driver_stop.return_value = response(False, "serial stop denied")
+        with self.modules():
+            result = self.node._stop_callback(object())
+        self.assertFalse(result.success)
+        self.assertIn("serial stop denied", result.message)
 
 
 if __name__ == "__main__":

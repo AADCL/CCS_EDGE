@@ -117,6 +117,8 @@ class Go2Robot2ProfileTests(unittest.TestCase):
             include = next(item for item in includes if "$(find " + package + ")" in item.get("file"))
             self.assertEqual(include.find("./arg[@name='map_name']").get("value"), "$(arg map_name)")
             self.assertEqual(include.find("./arg[@name='map_root']").get("value"), "$(arg map_root)")
+        navigation = next(item for item in includes if "$(find go2_navigation)" in item.get("file"))
+        self.assertEqual(navigation.find("./arg[@name='require_motion_state']").get("value"), "true")
         core = next(item for item in includes if "$(find go2_core)" in item.get("file"))
         self.assertEqual(core.find("./arg[@name='extrinsics']").get("value"), "$(arg extrinsics_file)")
 

@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import math
+import json
 import os
 import signal
 import subprocess
@@ -58,9 +59,23 @@ class StackManager(object):
         self.run_command = run_command
         self.clock = clock
         self.processes = []
+        self.algorithm_lock = None
 
     def start(self, map_id, map_dir):
         self.stop()
+        lock_path = self.config.get("algorithm_lock_file", "")
+        if lock_path:
+            import fcntl
+            lock = open(os.path.expanduser(lock_path), "a")
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                lock.close()
+                raise RosIntegrationError("mapping/localization algorithm is already owned")
+            self.algorithm_lock = lock
+            lock.seek(0); lock.truncate()
+            json.dump({"kind": "localization", "map_id": map_id, "pid": os.getpid()}, lock)
+            lock.flush()
         values = {
             "map_id": map_id, "map_dir": map_dir,
             "map_root": os.path.dirname(map_dir),
@@ -180,6 +195,18 @@ class StackManager(object):
                     os.killpg(os.getpgid(process.pid), signal.SIGTERM)
                 except OSError:
                     pass
+        if self.algorithm_lock is not None:
+            for unused_name, process in self.processes:
+                try:
+                    process.wait(timeout=3.0)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                    except OSError:
+                        pass
+                    process.wait(timeout=3.0)
+            self.algorithm_lock.close()
+            self.algorithm_lock = None
         self.processes = []
 
 
@@ -306,6 +333,7 @@ class RosBridge(object):
             return
         deadline = time.monotonic() + self.config["tf_timeout_seconds"]
         samples = []
+        last_stamp = 0.0
         health_seen = False
         delay = 1.0 / self.config["tf_sample_hz"]
         while (time.monotonic() < deadline and not self.rospy.is_shutdown()
@@ -319,6 +347,16 @@ class RosBridge(object):
                     self.config["map_frame"], self.config["odom_frame"],
                     self.rospy.Time(0), self.rospy.Duration(min(delay, 0.2)))
                 self._check_fresh_chain(transform)
+                if self.config.get("algorithm_lock_file"):
+                    stamp = transform.header.stamp.to_sec()
+                    age = self.rospy.Time.now().to_sec() - stamp
+                    if stamp <= 0 or not -0.2 <= age <= 1.0:
+                        samples = []
+                        raise RosIntegrationError("map/odom TF is stale")
+                    if stamp <= last_stamp:
+                        time.sleep(delay)
+                        continue
+                    last_stamp = stamp
                 t, q = transform.transform.translation, transform.transform.rotation
                 sample = (float(t.x), float(t.y), float(t.z),
                           float(q.x), float(q.y), float(q.z), float(q.w))

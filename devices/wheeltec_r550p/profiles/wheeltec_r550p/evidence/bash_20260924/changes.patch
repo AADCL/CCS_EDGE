@@ -1,0 +1,1227 @@
+--- a/start_ccs_edge_dev.sh
++++ b/start_ccs_edge_dev.sh
+@@ -1,18 +1,260 @@
+ #!/usr/bin/env bash
+ set -eo pipefail
+-export CCS_EDGE_WORKSPACE="${CCS_EDGE_WORKSPACE:-/home/nrc19/ccs_edge_ws}"
+-export CCS_LIVOX_SETUP="${CCS_LIVOX_SETUP:-/home/nrc19/livox_fastlio/devel/setup.bash}"
+-export CCS_EDGE_PROFILE_CONFIG_DIR="${CCS_EDGE_PROFILE_CONFIG_DIR:-${CCS_EDGE_WORKSPACE}/config/wheeltec_r550p}"
+-export CCS_EDGE_STATE_DIR="${CCS_EDGE_WORKSPACE}/run"
+-export CCS_ALGORITHM_LOCK_FILE="${CCS_EDGE_WORKSPACE}/run/algorithm.lock"
+-export ROS_HOME="${CCS_EDGE_WORKSPACE}/run/ros_home"
+-export ROS_LOG_DIR="${CCS_EDGE_WORKSPACE}/log/ros"
++
++WORKSPACE="${CCS_EDGE_WORKSPACE:-/home/nrc19/ccs_edge_ws}"
++NATIVE_WORKSPACE="${CCS_LIVOX_SETUP:-/home/nrc19/livox_fastlio/devel/setup.bash}"
++NATIVE_WORKSPACE="$(dirname "$(dirname "${NATIVE_WORKSPACE}")")"
++PROFILE_CONFIG_DIR="${CCS_EDGE_PROFILE_CONFIG_DIR:-${WORKSPACE}/config/wheeltec_r550p}"
++GROUND_STATION_IP="${CCS_GROUND_STATION_IP:-192.168.50.101}"
++NTP_SERVER="${CCS_NTP_SERVER:-${GROUND_STATION_IP}}"
++ROS_IP_VALUE="${CCS_ROS_IP:-192.168.50.122}"
++STATE_DIR="${WORKSPACE}/run/managed"
++LOG_ROOT="${CCS_EDGE_LOG_ROOT:-${WORKSPACE}/logs}"
++LOG_DIR="${LOG_ROOT}/__preflight__"
++STARTUP_LOG=""
++PREFLIGHT="${WORKSPACE}/scripts/ccs_wheeltec_preflight.py"
++READINESS="${WORKSPACE}/scripts/ccs_wheeltec_readiness.py"
++CHECK_ONLY=false
++SHUTDOWN_STARTED=false
++ROSCORE_PID=""
++VIDEO_OWNED=false
++LAUNCH_NAMES=(base mqtav udp_telemetry map_stream relocalization task_control)
++NODE_NAMES=(/wheeltec_robot /epgeneral_mqtav /epgeneral_udp_telemetry /epgeneral_map_stream /epgeneral_relocalization /epgeneral_task_control)
++PIDS=("" "" "" "" "" "")
++
++case "${1:-}" in
++  "") ;;
++  --check|--preflight) CHECK_ONLY=true ;;
++  *) printf 'Usage: %s [--check|--preflight]\n' "$0" >&2; exit 2 ;;
++esac
++[[ "$#" -le 1 ]] || { printf 'Unexpected arguments\n' >&2; exit 2; }
++record() { [[ -z "${STARTUP_LOG}" ]] || printf '%s %s\n' "$(date -Is)" "$*" >>"${STARTUP_LOG}"; }
++report() { printf '[%s] %s\n' "$1" "$2"; record "[$1] $2"; }
++fail() { report ERROR "$*" >&2; exit 1; }
++run_quiet() {
++  local output status
++  if output="$("$@" 2>&1)"; then return 0; else
++    status=$?; record "${output}"; printf '%s\n' "${output}" >&2; return "${status}"
++  fi
++}
++master_exists() { timeout 5 rosparam list >/dev/null 2>&1; }
++ros_node_exists() { local nodes; nodes="$(timeout 5 rosnode list 2>/dev/null)" && grep -Fxq -- "$1" <<<"${nodes}"; }
++owned_process_alive() {
++  local info parent group session status
++  [[ "$1" =~ ^[0-9]+$ ]] || return 1
++  info="$(ps -o ppid=,pgid=,sid=,stat= -p "$1")" || return 1
++  read -r parent group session status <<<"${info}"
++  [[ "${parent}" == "$$" && "${group}" == "$1" && "${session}" == "$1" && "${status}" != Z* ]]
++}
++process_alive() {
++  local status
++  status="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
++  [[ -n "${status}" && "${status// /}" != Z* ]]
++}
++stop_process() {
++  local pid="$1" attempt
++  process_alive "${pid}" || { wait "${pid}" 2>/dev/null || true; return 0; }
++  owned_process_alive "${pid}" || { report ERROR "PID ${pid} ownership changed; not signaling it."; return 1; }
++  kill -INT "${pid}" 2>/dev/null || true
++  for attempt in $(seq 1 120); do
++    process_alive "${pid}" || { wait "${pid}" 2>/dev/null || true; return 0; }
++    sleep .25
++  done
++  owned_process_alive "${pid}" || return 1
++  kill -TERM "${pid}" 2>/dev/null || true
++  for attempt in $(seq 1 40); do
++    process_alive "${pid}" || { wait "${pid}" 2>/dev/null || true; return 0; }
++    sleep .25
++  done
++  report ERROR "Owned PID ${pid} did not exit; inspect logs before restarting."
++  return 1
++}
++release_control() {
++  # V6 uses a protected velocity channel and explicit manual-authority release.
++  run_quiet timeout 8 rosservice call /wheeltec_robot/set_autonomous 'data: false' || return 1
++  run_quiet timeout 10 rostopic pub -1 /nav_cmd_vel geometry_msgs/Twist \
++    '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'
++}
++start_optional_video() {
++  local output
++  VIDEO_OWNED=true
++  if output="$(timeout -k 5 100 "${WORKSPACE}/manage_ccs_video.sh" start 8>&- 9>&- 2>&1)"; then
++    report OK "${output}"
++    [[ "${output}" == *'STARTED '* ]] || VIDEO_OWNED=false
++  else
++    report WARN "Video degraded; base services continue: ${output}"
++    if run_quiet timeout -k 5 55 "${WORKSPACE}/manage_ccs_video.sh" stop; then VIDEO_OWNED=false; fi
++  fi
++}
++shutdown_all() {
++  local exit_code="${1:-0}" index
++  [[ "${SHUTDOWN_STARTED}" == true ]] && return
++  SHUTDOWN_STARTED=true; trap - INT TERM EXIT; set +e
++  record "shutdown started exit_code=${exit_code}"
++  # Task adapter cancels its own goals/navigation before drivers and master stop.
++  if [[ -n "${PIDS[5]}" ]]; then
++    if stop_process "${PIDS[5]}"; then PIDS[5]=""; rm -f "${STATE_DIR}/task_control.pid"; else exit_code=1; fi
++  fi
++  if [[ -n "${PIDS[0]}" ]] && owned_process_alive "${PIDS[0]}" && master_exists; then
++    release_control || { report ERROR "Manual release/zero velocity failed."; exit_code=1; }
++    run_quiet python3 "${READINESS}" stopped --timeout 10 || { report ERROR "Fresh zero wheel speed not confirmed."; exit_code=1; }
++  fi
++  if [[ "${VIDEO_OWNED}" == true ]]; then
++    run_quiet timeout -k 5 55 "${WORKSPACE}/manage_ccs_video.sh" stop || exit_code=1
++  fi
++  for ((index=${#PIDS[@]}-1; index>=0; index--)); do
++    [[ -n "${PIDS[index]}" ]] || continue
++    if stop_process "${PIDS[index]}"; then rm -f "${STATE_DIR}/${LAUNCH_NAMES[index]}.pid"; else exit_code=1; fi
++  done
++  if [[ -n "${ROSCORE_PID}" ]]; then
++    if stop_process "${ROSCORE_PID}"; then rm -f "${STATE_DIR}/roscore.pid"; else exit_code=1; fi
++  fi
++  rm -f "${STATE_DIR}/startup.pid"
++  report OK "WheelTech workflow stopped; exit_code=${exit_code}."
++  exit "${exit_code}"
++}
++acquire_startup_locks() {
++  mkdir -p "${STATE_DIR}"
++  # Also lock the former entry's file so an already-running old deployment is rejected.
++  exec 8>"${WORKSPACE}/run/startup.lock"
++  flock -n 8 || fail "An existing UGV_003 workflow owns the legacy startup lock."
++  exec 9>"${STATE_DIR}/startup.lock"
++  flock -n 9 || fail "The UGV_003 workflow is already running."
++  }
++
++# Sourcing defines the same lifecycle functions for regression tests only.
++[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
++
++for setup in /opt/ros/noetic/setup.bash "${NATIVE_WORKSPACE}/devel/setup.bash" "${WORKSPACE}/devel/setup.bash"; do
++  [[ -r "${setup}" ]] || fail "Workspace is not built: ${setup}"
++done
++source /opt/ros/noetic/setup.bash
++source "${NATIVE_WORKSPACE}/devel/setup.bash" --extend
++source "${WORKSPACE}/devel/setup.bash" --extend
+ export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
+-export ROS_IP="${CCS_ROS_IP:-192.168.50.122}"
+-export PYTHONDONTWRITEBYTECODE=1
+-[[ "${1:-}" == "" || "${1:-}" == --check || "${1:-}" == --preflight ]] && [[ $# -le 1 ]] || { echo "Usage: $0 [--check|--preflight]" >&2; exit 2; }
+-for setup in /opt/ros/noetic/setup.bash "${CCS_LIVOX_SETUP}" "${CCS_EDGE_WORKSPACE}/devel/setup.bash"; do
+-  [[ -r "$setup" ]] || { echo "Missing environment: $setup" >&2; exit 1; }
+-  source "$setup" --extend
++export ROS_IP="${ROS_IP_VALUE}" PYTHONDONTWRITEBYTECODE=1
++export CCS_EDGE_WORKSPACE="${WORKSPACE}" CCS_LIVOX_SETUP="${NATIVE_WORKSPACE}/devel/setup.bash"
++export CCS_EDGE_PROFILE_CONFIG_DIR="${PROFILE_CONFIG_DIR}" CCS_EDGE_STATE_DIR="${WORKSPACE}/run"
++export CCS_ALGORITHM_LOCK_FILE="${WORKSPACE}/run/algorithm.lock"
++export ROS_HOME="${WORKSPACE}/run/ros_home" ROS_LOG_DIR="${WORKSPACE}/log/ros"
++mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
++command -v setsid >/dev/null && command -v flock >/dev/null || fail "setsid/flock are required."
++if [[ "${CHECK_ONLY}" != true ]]; then
++  acquire_startup_locks
++fi
++run_quiet python3 "${PREFLIGHT}" --profile "${PROFILE_CONFIG_DIR}" --workspace "${WORKSPACE}" \
++  --native-workspace "${NATIVE_WORKSPACE}" --device-ip "${ROS_IP_VALUE}" --station-ip "${GROUND_STATION_IP}" || fail "Profile preflight failed."
++[[ -r /dev/wheeltec_controller && -w /dev/wheeltec_controller ]] || fail "Wheeltec controller is unavailable or not accessible."
++ip -o -4 addr show dev wlan0 | awk '{print $4}' | grep -Fxq "${ROS_IP_VALUE}/24" || fail "Wheeltec LAN address is missing."
++ip -o -4 addr show dev eth0 | awk '{print $4}' | grep -Fxq '192.168.123.5/24' || fail "Livox host address is missing."
++ping -I eth0 -c 1 -W 2 192.168.123.124 >/dev/null || fail "MID360 is unreachable."
++# timesyncd adjusts the clock; availability alone also succeeds with a 1970 clock.
++systemctl is-active --quiet systemd-timesyncd || fail "Time synchronization service is inactive. Run: sudo systemctl enable --now systemd-timesyncd"
++report INFO "Waiting for clock synchronization with ${NTP_SERVER} (maximum 45 seconds)."
++if time_sync_output="$(python3 "${WORKSPACE}/scripts/ccs_sntp_sync.py" --server "${NTP_SERVER}" --wait-sync 45 --max-offset 0.5 2>&1)"; then
++  report OK "Clock synchronized: ${time_sync_output}"
++else
++  printf '%s\n' "${time_sync_output}" >&2
++  fail "Clock is not synchronized with ${NTP_SERVER}; refusing to start ROS services."
++fi
++if [[ "${CCS_ENABLE_VIDEO:-1}" != 0 ]]; then
++  gst-inspect-1.0 srtsink >/dev/null 2>&1 && gst-inspect-1.0 x264enc >/dev/null 2>&1 \
++    || report WARN "Video dependencies are unavailable; base services may still start."
++fi
++
++launch() {
++  local index="$1" name pid attempt; shift
++  name="${LAUNCH_NAMES[index]}"
++  run_quiet python3 "${PREFLIGHT}" --launch "$@" || fail "Invalid ${name} launch."
++  [[ "${CHECK_ONLY}" == true ]] && return 0
++  setsid roslaunch "$@" >"${LOG_DIR}/${name}.log" 2>&1 </dev/null 8>&- 9>&- &
++  pid=$!; PIDS[index]="${pid}"; printf '%s\n' "${pid}" >"${STATE_DIR}/${name}.pid"
++  for attempt in $(seq 1 30); do
++    kill -0 "${pid}" 2>/dev/null || fail "${name} exited; inspect ${LOG_DIR}/${name}.log."
++    if owned_process_alive "${pid}" && ros_node_exists "${NODE_NAMES[index]}"; then
++      report OK "${name} node is ready."; return 0
++    fi
++    sleep 1
++  done
++  fail "${name} startup timed out; inspect ${LOG_DIR}/${name}.log."
++}
++
++if [[ "${CHECK_ONLY}" != true ]]; then
++  if master_exists; then
++    existing_nodes="$(timeout 5 rosnode list)"
++    for node in "${NODE_NAMES[@]}" /livox_lidar_publisher2 /epgeneral_navigation_task_adapter \
++      /wheeltec_control /laserMapping /wheeltec_pointcloud_mapper /wheeltec_tf_manager /wheeltec_pose_adapter \
++      /wheeltec_global_localizer /wheeltec_cloud_adapter /move_base; do
++      grep -Fxq -- "${node}" <<<"${existing_nodes}" && fail "Existing ${node}; stop its owner before starting CCS."
++    done
++  fi
++  RUN_ID="$(date -u +%Y%m%dT%H%M%S.%NZ)_$$"
++  LOG_DIR="${LOG_ROOT}/${RUN_ID}"; STARTUP_LOG="${LOG_DIR}/startup.log"
++  mkdir -p "${LOG_DIR}/ros"
++  ln -sfn -- "${RUN_ID}" "${LOG_ROOT}/latest"
++  export ROS_LOG_DIR="${LOG_DIR}/ros" CCS_EDGE_VIDEO_LOG_DIR="${LOG_DIR}/video"
++  export CCS_OWNER_TOKEN="${RUN_ID}"
++  mkdir -p "${WORKSPACE}/run/state"
++  printf '%s\n' '{"schema_version":2,"status":"idle","map_id":""}' >"${WORKSPACE}/run/state/relocalization.json.tmp"
++  mv -f "${WORKSPACE}/run/state/relocalization.json.tmp" "${WORKSPACE}/run/state/relocalization.json"
++  printf '%s\n' "$$" >"${STATE_DIR}/startup.pid"
++  trap 'shutdown_all 130' INT
++  trap 'shutdown_all 143' TERM
++  trap 'shutdown_all $?' EXIT
++  record "startup pid=$$ UGV_003 video=${CCS_ENABLE_VIDEO:-1}"
++  record "time synchronization: ${time_sync_output}"
++  if ! master_exists; then
++    setsid roscore >"${LOG_DIR}/roscore.log" 2>&1 </dev/null 8>&- 9>&- &
++    ROSCORE_PID=$!; printf '%s\n' "${ROSCORE_PID}" >"${STATE_DIR}/roscore.pid"
++    for attempt in $(seq 1 20); do master_exists && break; sleep 1; done
++    master_exists || fail "ROS master did not start."
++  fi
++fi
++launch 0 epgeneral_wheeltec_integration base.launch
++if [[ "${CHECK_ONLY}" != true ]]; then
++  run_quiet python3 "${READINESS}" inputs --timeout 30 || fail "Base sensor inputs are not fresh."
++  release_control || fail "Initial manual release/zero velocity failed."
++  run_quiet python3 "${READINESS}" stopped --timeout 10 || fail "Wheel speeds are not zero."
++  report OK "Base sensors are fresh and wheel speeds are zero."
++fi
++launch 1 epgeneral_mqtav epgeneral_mqtav.launch config_file:="${PROFILE_CONFIG_DIR}/epgeneral_mqtav.yaml" \
++  device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml" log_dir:="${LOG_DIR}/mqtav"
++launch 2 epgeneral_udp_telemetry epgeneral_udp_telemetry.launch telemetry_config_file:="${PROFILE_CONFIG_DIR}/udp_telemetry.yaml" \
++  device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml" destination_host:="${GROUND_STATION_IP}" destination_port:=14560 \
++  link_status_topic:=/ugv/UGV_003/link/udp_tx diagnostics_topic:=/ugv/UGV_003/diagnostics
++launch 3 epgeneral_map_stream epgeneral_map_stream.launch mapping_config_file:="${PROFILE_CONFIG_DIR}/map_stream.yaml" \
++  device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml"
++launch 4 epgeneral_relocalization epgeneral_relocalization.launch config_file:="${PROFILE_CONFIG_DIR}/relocalization.yaml" \
++  device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml" log_dir:="${LOG_DIR}/relocalization"
++launch 5 epgeneral_task_control wheeltec_task_control.launch task_config_file:="${PROFILE_CONFIG_DIR}/task_control.yaml" \
++  device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml"
++if [[ "${CHECK_ONLY}" == true ]]; then
++  report OK "UGV_003 configuration, dependencies and launches passed; no nodes were started."
++  exit 0
++fi
++ros_node_exists /epgeneral_navigation_task_adapter || fail "Navigation task adapter is absent."
++ros_node_exists /wheeltec_control || fail "Wheeltec authority coordinator is absent."
++for service in /wheeltec_robot/set_autonomous /wheeltec_control/enable; do
++  [[ "$(timeout 5 rosservice type "${service}")" == std_srvs/SetBool ]] || fail "Required service unavailable: ${service}"
+ done
+-exec /usr/bin/python3 "${CCS_EDGE_WORKSPACE}/scripts/ugv003_supervisor.py" "$@"
++if [[ "${CCS_ENABLE_VIDEO:-1}" != 0 ]]; then start_optional_video; fi
++report READY "UGV_003 standby; mapping/localization/navigation remain task-managed. Logs: ${LOG_DIR}"
++while true; do
++  sleep 2
++  for index in "${!PIDS[@]}"; do
++    owned_process_alive "${PIDS[index]}" || fail "${LAUNCH_NAMES[index]} exited or ownership changed."
++  done
++  [[ -z "${ROSCORE_PID}" ]] || owned_process_alive "${ROSCORE_PID}" || fail "Owned master exited."
++  for attempt in 1 2 3; do
++    missing=true
++    if nodes="$(timeout 5 rosnode list 2>>"${LOG_DIR}/runtime_monitor.log")"; then
++      missing=false
++      for node in "${NODE_NAMES[@]}" /livox_lidar_publisher2 /epgeneral_navigation_task_adapter /wheeltec_control; do
++        grep -Fxq -- "${node}" <<<"${nodes}" || missing=true
++      done
++    fi
++    [[ "${missing}" == false ]] && break
++    record "ROS node check attempt=${attempt}/3 failed"; sleep 1
++  done
++  [[ "${missing}" == false ]] || fail "Required nodes absent after three checks."
++done
+--- a/manage_ccs_video.sh
++++ b/manage_ccs_video.sh
+@@ -6,7 +6,7 @@
+ LIVOX_SETUP="${CCS_LIVOX_SETUP:-/home/nrc19/livox_fastlio/devel/setup.bash}"
+ PROFILE_CONFIG_DIR="${CCS_EDGE_PROFILE_CONFIG_DIR:-${WORKSPACE}/config/wheeltec_r550p}"
+ STATE_DIR="${CCS_EDGE_WORKSPACE:-/home/nrc19/ccs_edge_ws}/run"
+-LOG_DIR="${WORKSPACE}/log"
++LOG_DIR="${CCS_EDGE_VIDEO_LOG_DIR:-${WORKSPACE}/log}"
+ PID_DIR="${STATE_DIR}/video"
+ COLOR_TOPIC="/camera/color/image_raw"
+ 
+@@ -19,7 +19,7 @@
+ source "${WORKSPACE}/devel/setup.bash" --extend
+ export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
+ export ROS_IP="${CCS_ROS_IP:-192.168.50.122}"
+-export ROS_HOME="${WORKSPACE}/run/ros_home" ROS_LOG_DIR="${WORKSPACE}/log/ros"
++export ROS_HOME="${WORKSPACE}/run/ros_home" ROS_LOG_DIR="${ROS_LOG_DIR:-${WORKSPACE}/log/ros}"
+ export PYTHONDONTWRITEBYTECODE=1
+ mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
+ exec 8>"${PID_DIR}/manager.lock"
+--- a/scripts/ugv003_supervisor.py
++++ /dev/null
+@@ -1,237 +0,0 @@
+-#!/usr/bin/env python3
+-"""Foreground, owned-process supervisor for UGV_003; never sends motion goals."""
+-import argparse
+-import fcntl
+-import json
+-import os
+-import signal
+-import subprocess
+-import sys
+-import time
+-import uuid
+-from pathlib import Path
+-
+-WORKSPACE = Path(os.environ.get('CCS_EDGE_WORKSPACE', '/home/nrc19/ccs_edge_ws')).resolve()
+-CONFIG = Path(os.environ.get('CCS_EDGE_PROFILE_CONFIG_DIR', str(WORKSPACE / 'config/wheeltec_r550p')))
+-NATIVE = Path(os.environ.get('CCS_LIVOX_SETUP', '/home/nrc19/livox_fastlio/devel/setup.bash')).parents[1]
+-GROUND = os.environ.get('CCS_GROUND_STATION_IP', '192.168.50.101')
+-
+-
+-def command(args, timeout=10):
+-    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
+-    if result.returncode:
+-        raise RuntimeError('%s: %s' % (' '.join(args), result.stdout[-1500:]))
+-    return result.stdout.strip()
+-
+-
+-def nodes():
+-    try:
+-        return set(command(['rosnode', 'list'], 5).splitlines())
+-    except (RuntimeError, subprocess.TimeoutExpired):
+-        return set()
+-
+-
+-def master_exists():
+-    try:
+-        command(['rosparam', 'list'], 5)
+-        return True
+-    except (RuntimeError, subprocess.TimeoutExpired):
+-        return False
+-
+-
+-def preflight():
+-    if not Path('/dev/wheeltec_controller').exists():
+-        raise RuntimeError('/dev/wheeltec_controller is missing')
+-    if command(['timedatectl', 'show', '-p', 'NTPSynchronized', '--value']) != 'yes':
+-        raise RuntimeError('time is not synchronized')
+-    if command(['timedatectl', 'show-timesync', '-p', 'ServerName', '--value']) != os.environ.get('CCS_NTP_SERVER', GROUND):
+-        raise RuntimeError('unexpected NTP server')
+-    addresses = json.loads(command(['ip', '-j', '-4', 'addr', 'show', 'dev', 'eth0']))
+-    if not any(a['local'] == '192.168.123.5' and a['prefixlen'] == 24 for dev in addresses for a in dev['addr_info']):
+-        raise RuntimeError('eth0 must have 192.168.123.5/24')
+-    cfg = json.loads((NATIVE / 'src/livox_ros_driver2/config/MID360_config.json').read_text())
+-    host = cfg['MID360']['host_net_info']
+-    if any(host[k] != '192.168.123.5' for k in ('cmd_data_ip', 'push_msg_ip', 'point_data_ip', 'imu_data_ip')) or cfg['lidar_configs'][0]['ip'] != '192.168.123.124':
+-        raise RuntimeError('MID360 network configuration does not match this device')
+-    command(['ping', '-c', '1', '-W', '2', '192.168.123.124'], 5)
+-    package = Path(command(['rospack', 'find', 'fast_lio'])).resolve()
+-    if package != NATIVE / 'src/FAST_LIO':
+-        raise RuntimeError('FAST-LIO must resolve to the existing native package')
+-    binary = NATIVE / 'devel/lib/fast_lio/fastlio_mapping'
+-    if (str(WORKSPACE / 'log/fastlio') + '/').encode() not in binary.read_bytes():
+-        raise RuntimeError('native FAST-LIO binary does not use the CCS runtime output directory')
+-    for name in ('device', 'epgeneral_mqtav', 'udp_telemetry', 'video', 'map_stream', 'relocalization', 'task_control'):
+-        if not (CONFIG / (name + '.yaml')).is_file():
+-            raise RuntimeError('missing profile: ' + name)
+-    for launch in ('base.launch', 'localization.launch', 'native_navigation_components.launch'):
+-        extra = [] if launch == 'base.launch' else ['map_dir:=' + str(WORKSPACE / 'maps/download/__check__')]
+-        if launch == 'native_navigation_components.launch':
+-            extra += ['map_name:=__check__']
+-        command(['roslaunch', '--files', 'epgeneral_wheeltec_integration', launch] + extra, 20)
+-    print('[OK] UGV_003 preflight: network, MID360, time, serial, native FAST-LIO, V6 launch files', flush=True)
+-
+-
+-class Supervisor:
+-    def __init__(self):
+-        self.processes = []
+-        self.stopping = False
+-        self.video_owned = False
+-        self.token = uuid.uuid4().hex
+-        self.exit_code = 0
+-        self.log = None
+-        os.environ['CCS_OWNER_TOKEN'] = self.token
+-
+-    def report(self, value):
+-        line = time.strftime('%Y-%m-%d %H:%M:%S ') + value
+-        print(line, flush=True)
+-        if self.log:
+-            self.log.write(line + '\n'); self.log.flush()
+-
+-    def interrupted(self, signum, frame):
+-        self.stopping = True
+-        self.exit_code = 128 + signum
+-
+-    def start(self, name, args, expected, timeout=30):
+-        if self.stopping:
+-            raise RuntimeError('startup interrupted')
+-        if expected and expected in nodes():
+-            raise RuntimeError('node is already owned by another startup: ' + expected)
+-        log = (WORKSPACE / 'log' / (name + '.log')).open('a', buffering=1)
+-        process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+-        self.processes.append((name, process, log, expected))
+-        (WORKSPACE / 'run' / (name + '.pid')).write_text(str(process.pid) + '\n')
+-        deadline = time.monotonic() + timeout
+-        while time.monotonic() < deadline:
+-            if self.stopping or process.poll() is not None:
+-                raise RuntimeError(name + ' exited during startup; see log/' + name + '.log')
+-            if (expected and expected in nodes()) or (not expected and master_exists()):
+-                self.report('[OK] ' + name)
+-                return
+-            time.sleep(0.3)
+-        raise RuntimeError(name + ' startup timeout')
+-
+-    def launch(self, name, node, package, launch, *args):
+-        self.start(name, ['roslaunch', package, launch] + list(args), node)
+-
+-    def stop_child(self, entry):
+-        name, process, log, expected = entry
+-        # Popen retains child identity; signal only the session we created.
+-        for sig, timeout in ((signal.SIGINT, 40), (signal.SIGTERM, 5), (signal.SIGKILL, 3)):
+-            if process.poll() is not None:
+-                break
+-            if os.getpgid(process.pid) != process.pid:
+-                self.report('[ERROR] process group ownership changed: ' + name)
+-                self.exit_code = 1
+-                return
+-            os.killpg(process.pid, sig)
+-            try:
+-                process.wait(timeout=timeout)
+-            except subprocess.TimeoutExpired:
+-                continue
+-        log.close()
+-        (WORKSPACE / 'run' / (name + '.pid')).unlink(missing_ok=True)
+-
+-    def shutdown(self):
+-        self.report('[INFO] stopping owned task/navigation, algorithms, video, drivers and master')
+-        # The task adapter stops its own navigation and releases control before localization exits.
+-        task = [entry for entry in self.processes if entry[0] == 'task_control']
+-        for entry in task:
+-            self.stop_child(entry)
+-        if any(entry[0] == 'base' for entry in self.processes):
+-            try:
+-                command(['rosservice', 'call', '/wheeltec_robot/set_autonomous', 'data: false'], 5)
+-            except Exception as exc:
+-                self.report('[WARN] manual release: ' + str(exc))
+-        if self.video_owned:
+-            subprocess.run([str(WORKSPACE / 'manage_ccs_video.sh'), 'stop'], timeout=55, check=False)
+-        for entry in reversed(self.processes):
+-            if entry not in task:
+-                self.stop_child(entry)
+-        self.report('[OK] owned processes stopped')
+-
+-    def start_optional_video(self):
+-        self.video_owned = True  # Token-scoped cleanup also covers partial startup/timeouts.
+-        manager = str(WORKSPACE / 'manage_ccs_video.sh')
+-        try:
+-            result = command([manager, 'start'], 100)
+-            self.video_owned = 'STARTED ' in result
+-            self.report('[OK] ' + result)
+-        except Exception as exc:
+-            self.report('[WARN] video degraded; base services continue: ' + str(exc))
+-            try:
+-                command([manager, 'stop'], 55)
+-                self.video_owned = False
+-            except Exception as cleanup_error:
+-                self.report('[WARN] owned video cleanup pending: ' + str(cleanup_error))
+-
+-    def run(self):
+-        for path in ('run/state', 'run/ros_home', 'log/ros', 'maps/mapping', 'maps/download', 'maps/archive'):
+-            (WORKSPACE / path).mkdir(parents=True, exist_ok=True)
+-        lock = (WORKSPACE / 'run/startup.lock').open('a')
+-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+-        self.log = (WORKSPACE / 'log/startup.log').open('a', buffering=1)
+-        signal.signal(signal.SIGINT, self.interrupted)
+-        signal.signal(signal.SIGTERM, self.interrupted)
+-        try:
+-            preflight()
+-            conflicts = nodes() & {'/wheeltec_robot', '/livox_lidar_publisher2', '/laserMapping', '/move_base',
+-                                   '/epgeneral_mqtav', '/epgeneral_map_stream', '/epgeneral_relocalization', '/epgeneral_task_control',
+-                                   '/wheeltec_control', '/epgeneral_navigation_task_adapter', '/epgeneral_udp_telemetry'}
+-            if conflicts:
+-                raise RuntimeError('existing ROS session must be stopped by its owner: ' + ','.join(sorted(conflicts)))
+-            state = WORKSPACE / 'run/state/relocalization.json'
+-            state.write_text(json.dumps({'schema_version': 2, 'status': 'idle', 'map_id': ''}))
+-            if not master_exists():
+-                self.start('roscore', ['roscore'], None)
+-            self.launch('base', '/wheeltec_robot', 'epgeneral_wheeltec_integration', 'base.launch')
+-            self.report(command(['rosrun', 'epgeneral_wheeltec_integration', 'check_ready.py', 'base', '--timeout', '30'], 40))
+-            device = 'device_config_file:=' + str(CONFIG / 'device.yaml')
+-            self.launch('mqtav', '/epgeneral_mqtav', 'epgeneral_mqtav', 'epgeneral_mqtav.launch', 'config_file:=' + str(CONFIG / 'epgeneral_mqtav.yaml'), device)
+-            self.launch('udp_telemetry', '/epgeneral_udp_telemetry', 'epgeneral_udp_telemetry', 'epgeneral_udp_telemetry.launch',
+-                        'telemetry_config_file:=' + str(CONFIG / 'udp_telemetry.yaml'), device, 'destination_host:=' + GROUND,
+-                        'link_status_topic:=/ugv/UGV_003/link/udp_tx', 'diagnostics_topic:=/ugv/UGV_003/diagnostics')
+-            self.launch('map_stream', '/epgeneral_map_stream', 'epgeneral_map_stream', 'epgeneral_map_stream.launch',
+-                        'mapping_config_file:=' + str(CONFIG / 'map_stream.yaml'), device)
+-            self.launch('relocalization', '/epgeneral_relocalization', 'epgeneral_relocalization', 'epgeneral_relocalization.launch',
+-                        'config_file:=' + str(CONFIG / 'relocalization.yaml'), device, 'log_dir:=' + str(WORKSPACE / 'log'))
+-            self.launch('task_control', '/epgeneral_task_control', 'epgeneral_task_control', 'wheeltec_task_control.launch',
+-                        'task_config_file:=' + str(CONFIG / 'task_control.yaml'), device)
+-            for service, expected in (('/wheeltec_robot/set_autonomous', 'std_srvs/SetBool'), ('/wheeltec_control/enable', 'std_srvs/SetBool')):
+-                deadline = time.monotonic() + 20
+-                while True:
+-                    try:
+-                        if command(['rosservice', 'type', service], 3) == expected:
+-                            break
+-                    except Exception:
+-                        pass
+-                    if time.monotonic() > deadline or self.stopping:
+-                        raise RuntimeError('service unavailable: ' + service)
+-                    time.sleep(0.3)
+-            if os.environ.get('CCS_ENABLE_VIDEO', '1') != '0':
+-                self.start_optional_video()
+-            self.report('[READY] UGV_003 standby; mapping/localization/navigation are on demand')
+-            while not self.stopping:
+-                current = nodes()
+-                for name, process, unused_log, expected in self.processes:
+-                    if process.poll() is not None or (expected and expected not in current):
+-                        raise RuntimeError('managed service failed: ' + name)
+-                if '/livox_lidar_publisher2' not in current or '/wheeltec_control' not in current or '/epgeneral_navigation_task_adapter' not in current:
+-                    raise RuntimeError('required sensor/control node disappeared')
+-                time.sleep(1)
+-        except Exception as exc:
+-            self.report('[ERROR] ' + str(exc))
+-            self.exit_code = self.exit_code or 1
+-        finally:
+-            self.shutdown()
+-            lock.close()
+-        return self.exit_code
+-
+-
+-if __name__ == '__main__':
+-    parser = argparse.ArgumentParser()
+-    parser.add_argument('--check', '--preflight', action='store_true')
+-    args = parser.parse_args()
+-    if args.check:
+-        preflight()
+-    else:
+-        raise SystemExit(Supervisor().run())
+--- /dev/null
++++ b/scripts/ccs_wheeltec_preflight.py
+@@ -0,0 +1,185 @@
++#!/usr/bin/env python3
++"""Read-only checks for the UGV_003 V6.0 overlay, including on-demand launches."""
++import argparse
++import importlib
++import json
++import math
++import os
++from pathlib import Path
++import socket
++import sys
++from urllib.parse import urlparse
++
++PACKAGES = ('epgeneral_device_config', 'epgeneral_mqtav', 'epgeneral_udp_telemetry',
++            'epgeneral_video_srt', 'epgeneral_map_stream', 'epgeneral_relocalization',
++            'epgeneral_task_control', 'epgeneral_wheeltec_integration')
++CONFIG_NAMES = ('device', 'epgeneral_mqtav', 'udp_telemetry', 'video', 'map_stream',
++                'relocalization', 'task_control')
++
++
++def validate_profile(profile, workspace, native, device_ip, station_ip):
++    import yaml
++    config = {name: yaml.safe_load((profile / (name + '.yaml')).read_text(encoding='utf-8'))
++              for name in CONFIG_NAMES}
++    master = urlparse(os.environ.get('ROS_MASTER_URI', 'http://127.0.0.1:11311'))
++    if master.scheme != 'http' or master.hostname not in ('localhost', '127.0.0.1', device_ip):
++        raise ValueError('ROS master must be local to this device')
++    if config['device']['device'] != {'id': 'UGV_003', 'ip': device_ip}:
++        raise ValueError('UGV_003 identity does not match startup')
++    for name in ('map_stream', 'relocalization', 'task_control'):
++        if config[name]['network']['ground_station_ip'] != station_ip:
++            raise ValueError(name + ': ground station mismatch')
++    if config['epgeneral_mqtav']['mqtt']['ground_station_ip'] != station_ip:
++        raise ValueError('MQTT ground station mismatch')
++    if config['udp_telemetry']['network']['destination_host'] != station_ip:
++        raise ValueError('UDP ground station mismatch')
++    if config['task_control']['timeouts']['utc_tolerance_seconds'] != 2.0:
++        raise ValueError('Task UTC tolerance must remain two seconds')
++    state = str(workspace / 'run/state/relocalization.json')
++    maps = str(workspace / 'maps/download')
++    adapter = config['task_control']['adapter']
++    storage = config['relocalization']['storage']
++    pgm = next(item['source'] for item in config['udp_telemetry']['descriptors']
++               if item['name'] == 'pgm_mapping')
++    if any(value != state for value in (adapter['active_map_state_file'],
++            storage['active_map_state_file'], pgm['state_file'])):
++        raise ValueError('Map state paths must agree')
++    if any(value != maps for value in (adapter['navigation_map_root'], storage['map_root'], pgm['map_root'])):
++        raise ValueError('Downloaded map paths must agree')
++    if (adapter['navigation_launch_package'], adapter['navigation_launch_file']) != (
++            'epgeneral_wheeltec_integration', 'navigation.launch'):
++        raise ValueError('CCS V6 native navigation wrapper is required')
++    mapping = config['map_stream']
++    extrinsics = native / 'src/wheeltec_tf_manager/config/extrinsics.yaml'
++    if mapping['integrations']['mapping_prerequisites']['extrinsics_file'] != str(extrinsics):
++        raise ValueError('Extrinsics must reference this native workspace')
++    transforms = yaml.safe_load(extrinsics.read_text(encoding='utf-8'))['transforms']
++    calibration = next(item for item in transforms
++                       if item['parent'] == 'base_link' and item['child'] == 'body')
++    # publish_inverse affects the TF broadcast direction, not the measured matrix.
++    from tf.transformations import quaternion_from_euler
++    q = quaternion_from_euler(*(math.radians(calibration.get(k, 0.0))
++                               for k in ('roll_deg', 'pitch_deg', 'yaw_deg')))
++    expected = [calibration[k] for k in ('x', 'y', 'z')] + list(q)
++    actual = [mapping['ros']['body_from_sensor'][k] for k in ('x', 'y', 'z', 'qx', 'qy', 'qz', 'qw')]
++    if any(abs(a-b) > 1e-6 for a, b in zip(actual, expected)):
++        raise ValueError('body_from_sensor must encode base_link <- body from this device')
++    yaml.safe_load((native / 'src/wheeltec_system_bringup/config/wheeltec_geometry.yaml').read_text(encoding='utf-8'))
++    for name, value in config.items():
++        if any(old in json.dumps(value) for old in ('UGV_004', '/home/nrc15', '192.168.50.123')):
++            raise ValueError('Foreign device configuration in ' + name)
++    lidar = json.loads((native / 'src/livox_ros_driver2/config/MID360_config.json').read_text())
++    host = lidar['MID360']['host_net_info']
++    if any(host[k] != '192.168.123.5' for k in ('cmd_data_ip', 'push_msg_ip', 'point_data_ip', 'imu_data_ip')) or lidar['lidar_configs'][0]['ip'] != '192.168.123.124':
++        raise ValueError('MID360 network configuration does not match UGV_003')
++    import mmap
++    with (native / 'devel/lib/fast_lio/fastlio_mapping').open('rb') as binary:
++        with mmap.mmap(binary.fileno(), 0, access=mmap.ACCESS_READ) as data:
++            if data.find((str(workspace / 'log/fastlio') + '/').encode()) < 0:
++                raise ValueError('Native FAST-LIO runtime output must stay inside CCS')
++    return config
++
++
++def validate_launch(arguments):
++    import roslaunch
++    import roslib.packages
++    launch_file = roslaunch.rlutil.resolve_launch_arguments(arguments)[0]
++    remappings = [arg for arg in arguments if ':=' in arg]
++    launch = roslaunch.config.load_config_default([(launch_file, remappings)], None, verbose=False)
++    for node in launch.nodes:
++        if not roslib.packages.find_node(node.package, node.type):
++            raise ValueError('Missing executable {}/{}'.format(node.package, node.type))
++    print('launch {}: {} executable nodes resolved'.format(launch_file, len(launch.nodes)))
++    return launch
++
++
++def validate_installation(args):
++    import rospkg
++    import roslib.message
++    import msgpack
++    import paho.mqtt.client
++    config = validate_profile(args.profile, args.workspace, args.native_workspace,
++                              args.device_ip, args.station_ip)
++    packages = rospkg.RosPack()
++    if Path(packages.get_path('fast_lio')).resolve() != (args.native_workspace / 'src/FAST_LIO').resolve():
++        raise ValueError('FAST-LIO must use the existing native package')
++    src = (args.workspace / 'src').resolve()
++    for name in PACKAGES:
++        package_path = Path(packages.get_path(name))
++        if package_path.is_symlink() or src not in package_path.resolve().parents:
++            raise ValueError(name + ' must resolve to an entity under CCS src')
++        print('package {}={}'.format(name, package_path))
++    for module, filename in (('epgeneral_mqtav.config', 'epgeneral_mqtav'),
++                             ('epgeneral_udp_telemetry.config', 'udp_telemetry'),
++                             ('epgeneral_map_stream.config', 'map_stream'),
++                             ('epgeneral_relocalization.config', 'relocalization'),
++                             ('epgeneral_task_control.config', 'task_control')):
++        importlib.import_module(module).load_config(str(args.profile / (filename + '.yaml')),
++                                                  str(args.profile / 'device.yaml'))
++    for message in ('livox_ros_driver2/CustomMsg', 'nav_msgs/Odometry', 'sensor_msgs/Imu',
++                    'std_msgs/Float32', 'geometry_msgs/Twist',
++                    'epgeneral_task_control/TaskExecutionCommand',
++                    'epgeneral_task_control/TaskExecutionFeedback'):
++        cls = roslib.message.get_message_class(message)
++        if cls is None:
++            raise ValueError('Missing ROS message ' + message)
++        print('message {} md5={}'.format(message, cls._md5sum))
++    managed = config['map_stream']['integrations']['managed']
++    for prefix, extra in (('fast_lio', ['rviz:=false']), ('mapper', ['map_name:=19700101_000000']),
++                          ('tf', []), ('pose', [])):
++        validate_launch([managed[prefix + '_package'], managed[prefix + '_launch']] + extra)
++    finalizer = Path(packages.get_path(managed['finalize_package'])) / 'scripts' / managed['finalize_executable']
++    if not os.access(str(finalizer), os.X_OK):
++        raise ValueError('Finalizer is not executable: ' + str(finalizer))
++    values = dict(map_id='__preflight__', map_root=str(args.workspace / 'maps/download'),
++                  map_dir=str(args.workspace / 'maps/download/__preflight__'),
++                  map_pcd=str(args.workspace / 'maps/download/__preflight__/public_map.pcd'),
++                  map_yaml=str(args.workspace / 'maps/download/__preflight__/map.yaml'))
++    for stage in config['relocalization']['ros']['stages']:
++        validate_launch([stage['package'], stage['launch']] +
++                        [arg.format(**values) for arg in stage.get('args', [])])
++    adapter = config['task_control']['adapter']
++    launch = validate_launch([adapter['navigation_launch_package'], adapter['navigation_launch_file'],
++                             'map_name:=__preflight__', 'map_dir:=' + values['map_dir'], 'nav_map_yaml:=' + values['map_yaml']])
++    if any(node.package in ('turn_on_wheeltec_robot', 'livox_ros_driver2', 'fast_lio') for node in launch.nodes):
++        raise ValueError('Navigation must not duplicate drivers/localization')
++    validate_launch(['epgeneral_wheeltec_integration', 'native_navigation_components.launch',
++                     'map_name:=__preflight__', 'map_dir:=' + values['map_dir']])
++    # Bind and immediately close only currently unowned endpoints. Running CCS is
++    # checked by its owning root script; --check also works against an active stack.
++    import rosgraph
++    active = set()
++    if rosgraph.is_master_online():
++        master = rosgraph.Master('/ccs_wheeltec_preflight')
++        active = {name for group in master.getSystemState() for unused, names in group for name in names}
++    for port, kind, owner in ((14561, socket.SOCK_DGRAM, '/epgeneral_map_stream'),
++                              (14563, socket.SOCK_DGRAM, '/epgeneral_task_control'),
++                              (14565, socket.SOCK_DGRAM, '/epgeneral_relocalization'),
++                              (14600, socket.SOCK_STREAM, '/epgeneral_map_stream')):
++        if owner not in active:
++            with socket.socket(socket.AF_INET, kind) as sock:
++                sock.bind(('0.0.0.0', port))
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--profile', type=Path)
++    parser.add_argument('--workspace', type=Path)
++    parser.add_argument('--native-workspace', type=Path)
++    parser.add_argument('--device-ip', default='192.168.50.122')
++    parser.add_argument('--station-ip', default='192.168.50.101')
++    parser.add_argument('--launch', nargs=argparse.REMAINDER)
++    args = parser.parse_args()
++    try:
++        if args.launch:
++            validate_launch(args.launch)
++        else:
++            validate_installation(args)
++        return 0
++    except Exception as error:
++        print('Wheeltec preflight failed: {}'.format(error), file=sys.stderr)
++        return 1
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+--- /dev/null
++++ b/scripts/ccs_wheeltec_readiness.py
+@@ -0,0 +1,70 @@
++#!/usr/bin/env python3
++"""Observe fresh WheelTech inputs; stopped mode verifies measured wheel speed."""
++import argparse
++import math
++import threading
++import time
++
++INPUTS = {'/odom': 'nav_msgs/Odometry', '/imu': 'sensor_msgs/Imu',
++          '/PowerVoltage': 'std_msgs/Float32', '/livox/lidar': 'livox_ros_driver2/CustomMsg',
++          '/livox/imu': 'sensor_msgs/Imu'}
++
++
++def stationary(message):
++    twist = message.twist.twist
++    values = [twist.linear.x, twist.linear.y, twist.linear.z,
++              twist.angular.x, twist.angular.y, twist.angular.z]
++    return all(math.isfinite(v) for v in values) and max(abs(v) for v in values[:3]) <= .01 \
++        and max(abs(v) for v in values[3:]) <= .02
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('mode', choices=('inputs', 'stopped'))
++    parser.add_argument('--timeout', type=float, default=30)
++    parser.add_argument('--max-age', type=float, default=3)
++    args = parser.parse_args()
++    import rospy
++    import roslib.message
++    rospy.init_node('ccs_wheeltec_readiness', anonymous=True, disable_signals=True)
++    topics = INPUTS if args.mode == 'inputs' else {'/odom': INPUTS['/odom']}
++    observations = {}
++    lock = threading.Lock()
++    started = time.time()
++
++    def observe(message, topic):
++        now = time.time()
++        header = getattr(message, 'header', None)
++        stamp = header.stamp.to_sec() if header is not None else now
++        valid = started <= stamp <= now and now - stamp <= args.max_age
++        if topic == '/PowerVoltage':
++            valid = valid and math.isfinite(message.data) and message.data > 0
++        if args.mode == 'stopped':
++            valid = valid and stationary(message)
++        with lock:
++            count, previous, unused = observations.get(topic, (0, 0, 0))
++            observations[topic] = ((count + 1) if valid and stamp > previous else 0, stamp, now)
++
++    subscribers = [rospy.Subscriber(topic, roslib.message.get_message_class(kind),
++                                   observe, callback_args=topic, queue_size=2)
++                   for topic, kind in topics.items()]
++    deadline = time.monotonic() + args.timeout
++    try:
++        while time.monotonic() < deadline and not rospy.is_shutdown():
++            with lock:
++                missing = [topic for topic in topics if observations.get(topic, (0, 0, 0))[0] < 2
++                           or time.time() - observations[topic][2] > args.max_age]
++            if not missing:
++                print('Fresh {} confirmed: {}'.format(args.mode, ', '.join(topics)))
++                return 0
++            time.sleep(.05)
++        print('Fresh {} unavailable: {}'.format(args.mode, ', '.join(missing)))
++        return 1
++    finally:
++        for subscriber in subscribers:
++            subscriber.unregister()
++        rospy.signal_shutdown('readiness completed')
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+--- /dev/null
++++ b/scripts/ccs_sntp_sync.py
+@@ -0,0 +1,105 @@
++#!/usr/bin/env python3
++"""Read-only SNTP availability or offset query; timesyncd owns clock adjustment."""
++import argparse
++import socket
++import struct
++import sys
++import time
++
++NTP_DELTA = 2208988800
++
++
++def timestamp(raw):
++    seconds, fraction = struct.unpack("!II", raw)
++    return seconds - NTP_DELTA + fraction / float(1 << 32)
++
++
++def query(server, timeout, availability_only=False):
++    packet = bytearray(48)
++    packet[0] = 0x23
++    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
++        sock.settimeout(timeout)
++        sock.connect((server, 123))
++        sent_monotonic = time.monotonic()
++        sent = time.time()
++        ntp_sent = sent + NTP_DELTA
++        packet[40:48] = struct.pack("!II", int(ntp_sent), int((ntp_sent % 1) * (1 << 32)))
++        sock.send(packet)
++        data = sock.recv(512)
++        received = None if availability_only else time.time()
++        elapsed = time.monotonic() - sent_monotonic
++        peer = sock.getpeername()[0]
++    if len(data) < 48 or data[0] & 7 != 4:
++        raise RuntimeError("invalid NTP server response")
++    if data[24:32] != packet[40:48]:
++        raise RuntimeError("NTP response does not match this request")
++    if availability_only:
++        return {"server": peer}
++    if abs((received - sent) - elapsed) > 0.1:
++        raise RuntimeError("local clock changed during SNTP query; retrying")
++    if data[0] >> 6 == 3 or not 1 <= data[1] <= 15:
++        raise RuntimeError("NTP server reports unsynchronized time")
++    server_received = timestamp(data[32:40])
++    server_sent = timestamp(data[40:48])
++    if server_received < 1577836800 or server_sent < server_received:
++        raise RuntimeError("invalid NTP server timestamps")
++    offset = ((server_received - sent) + (server_sent - received)) / 2.0
++    return {"server": peer, "offset_seconds": offset,
++            "round_trip_seconds": received - sent - (server_sent - server_received)}
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--server", default="192.168.50.101")
++    parser.add_argument("--timeout", type=float, default=3.0)
++    parser.add_argument("--retries", type=int, default=2)
++    parser.add_argument("--max-offset", type=float, default=2.0)
++    parser.add_argument("--wait-sync", type=float, default=0.0,
++                        help="wait up to this many seconds for the offset to converge")
++    parser.add_argument("--availability-only", action="store_true",
++                        help="check only that the server responds; ignore clock offset")
++    args = parser.parse_args()
++    if args.timeout <= 0 or args.retries < 1 or args.max_offset <= 0 or args.wait_sync < 0:
++        parser.error("timeout, retries and max-offset must be positive; wait-sync must be nonnegative")
++    if args.availability_only and args.wait_sync:
++        parser.error("--wait-sync requires an actual clock offset check")
++    last_error = None
++    deadline = time.monotonic() + args.wait_sync
++    attempt = 0
++    while True:
++        attempt += 1
++        timeout = args.timeout
++        if args.wait_sync:
++            timeout = min(timeout, max(0.001, deadline - time.monotonic()))
++        try:
++            if args.availability_only:
++                result = query(args.server, timeout, availability_only=True)
++                print("server={server} available=true".format(**result))
++                return 0
++            result = query(args.server, timeout)
++            print("server={server} offset_seconds={offset_seconds:.3f} "
++                  "round_trip_seconds={round_trip_seconds:.3f}".format(**result))
++            if abs(result["offset_seconds"]) <= args.max_offset:
++                return 0
++            if not args.wait_sync:
++                return 2
++            last_error = "clock offset exceeds {} seconds".format(args.max_offset)
++        except (OSError, RuntimeError) as exc:
++            last_error = exc
++        if args.wait_sync:
++            remaining = deadline - time.monotonic()
++            if remaining <= 0:
++                break
++            time.sleep(min(1.0, remaining))
++            if time.monotonic() >= deadline:
++                break
++        elif attempt >= args.retries:
++            break
++        else:
++            time.sleep(0.5)
++    print("SNTP query failed: {}".format(last_error), file=sys.stderr)
++    return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+--- a/src/EPGeneral_wheeltec_integration/test/test_supervisor.py
++++ /dev/null
+@@ -1,91 +0,0 @@
+-import importlib.util
+-import os
+-import sys
+-import tempfile
+-import subprocess
+-import unittest
+-from pathlib import Path
+-from types import SimpleNamespace
+-from unittest.mock import Mock, patch
+-
+-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+-from epgeneral_wheeltec_integration.readiness import Readiness
+-
+-
+-class ReadinessTests(unittest.TestCase):
+-    def check(self):
+-        obj = Readiness.__new__(Readiness)
+-        obj.received, obj.errors = {}, {}
+-        obj.rospy = SimpleNamespace(Time=SimpleNamespace(now=lambda: SimpleNamespace(to_sec=lambda: 100.0)))
+-        return obj
+-
+-    def test_stale_or_future_messages_do_not_make_sensor_ready(self):
+-        check = self.check()
+-        for stamp in (0, 90, 101):
+-            check.callback(SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(to_sec=lambda: stamp))), '/livox/lidar')
+-            self.assertNotIn('/livox/lidar', check.received)
+-        check.callback(SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(to_sec=lambda: 99.9))), '/livox/lidar')
+-        self.assertIn('/livox/lidar', check.received)
+-
+-    def test_invalid_voltage_does_not_make_chassis_ready(self):
+-        check = self.check()
+-        for voltage in (float('nan'), 0, -1):
+-            check.callback(SimpleNamespace(data=voltage), '/PowerVoltage')
+-            self.assertNotIn('/PowerVoltage', check.received)
+-        check.callback(SimpleNamespace(data=24.0), '/PowerVoltage')
+-        self.assertIn('/PowerVoltage', check.received)
+-
+-
+-@unittest.skipIf(os.name == 'nt', 'Linux owned-process supervisor')
+-class SupervisorTests(unittest.TestCase):
+-    @classmethod
+-    def setUpClass(cls):
+-        path = Path(os.environ.get('CCS_SUPERVISOR_TEST_PATH', str(Path(__file__).resolve().parents[2] / 'profiles/wheeltec_r550p/scripts/ugv003_supervisor.py')))
+-        spec = importlib.util.spec_from_file_location('ugv003_supervisor_test', path)
+-        cls.module = importlib.util.module_from_spec(spec)
+-        spec.loader.exec_module(cls.module)
+-
+-    def test_failed_preflight_shutdown_does_not_touch_external_ros(self):
+-        supervisor = self.module.Supervisor()
+-        with patch.object(self.module, 'command') as command, patch.object(self.module.subprocess, 'run') as run:
+-            supervisor.shutdown()
+-        command.assert_not_called()
+-        run.assert_not_called()
+-
+-    def test_video_failure_cleans_partial_owned_start_and_keeps_base_services(self):
+-        supervisor = self.module.Supervisor()
+-        base = Mock()
+-        supervisor.processes = [base]
+-        with patch.object(self.module, 'command', side_effect=[RuntimeError('camera timeout'), 'STOPPED camera']) as command:
+-            supervisor.start_optional_video()
+-        self.assertEqual(command.call_args_list[1].args[0][-1], 'stop')
+-        self.assertEqual(supervisor.processes, [base])
+-        self.assertFalse(supervisor.video_owned)
+-        self.assertEqual(supervisor.exit_code, 0)
+-
+-    def test_mapping_stop_refuses_unrelated_live_pid(self):
+-        script = os.environ.get('CCS_MAPPING_TEST_PATH')
+-        if not script:
+-            self.skipTest('deployed mapping script path required')
+-        with tempfile.TemporaryDirectory() as tmp:
+-            pidfile = Path(tmp) / 'mapping.pid'
+-            pidfile.write_text(str(os.getpid()) + '\n')
+-            Path(str(pidfile) + '.identity').write_text(Path('/proc/self/stat').read_text().split()[21])
+-            env = dict(os.environ, CCS_ALGORITHM_LOCK_FILE=str(Path(tmp) / 'lock'))
+-            result = subprocess.run(['bash', script, '--stop', str(pidfile), '1'], env=env,
+-                                    capture_output=True, text=True, timeout=5)
+-            self.assertNotEqual(result.returncode, 0)
+-            self.assertIn('not owned', result.stderr)
+-
+-    def test_stopping_process_with_changed_group_is_refused(self):
+-        process = Mock(pid=42)
+-        process.poll.return_value = None
+-        supervisor = self.module.Supervisor()
+-        with patch.object(self.module.os, 'getpgid', return_value=99), patch.object(self.module.os, 'killpg') as kill:
+-            supervisor.stop_child(('base', process, Mock(), '/wheeltec_robot'))
+-        kill.assert_not_called()
+-        self.assertEqual(supervisor.exit_code, 1)
+-
+-
+-if __name__ == '__main__':
+-    unittest.main()
+--- /dev/null
++++ b/src/EPGeneral_wheeltec_integration/test/test_startup.py
+@@ -0,0 +1,128 @@
++import os
++import sys
++import tempfile
++import subprocess
++import unittest
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
++from epgeneral_wheeltec_integration.readiness import Readiness
++
++
++class ReadinessTests(unittest.TestCase):
++    def check(self):
++        obj = Readiness.__new__(Readiness)
++        obj.received, obj.errors = {}, {}
++        obj.rospy = SimpleNamespace(Time=SimpleNamespace(now=lambda: SimpleNamespace(to_sec=lambda: 100.0)))
++        return obj
++
++    def test_stale_or_future_messages_do_not_make_sensor_ready(self):
++        check = self.check()
++        for stamp in (0, 90, 101):
++            check.callback(SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(to_sec=lambda: stamp))), '/livox/lidar')
++            self.assertNotIn('/livox/lidar', check.received)
++        check.callback(SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(to_sec=lambda: 99.9))), '/livox/lidar')
++        self.assertIn('/livox/lidar', check.received)
++
++    def test_invalid_voltage_does_not_make_chassis_ready(self):
++        check = self.check()
++        for voltage in (float('nan'), 0, -1):
++            check.callback(SimpleNamespace(data=voltage), '/PowerVoltage')
++            self.assertNotIn('/PowerVoltage', check.received)
++        check.callback(SimpleNamespace(data=24.0), '/PowerVoltage')
++        self.assertIn('/PowerVoltage', check.received)
++
++
++@unittest.skipIf(os.name == 'nt', 'Linux process and Bash lifecycle tests')
++class BashStartupTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.root = Path(self.tmp.name)
++        self.script = Path(os.environ.get('CCS_STARTUP_TEST_PATH', str(Path(__file__).resolve().parents[2] / 'profiles/wheeltec_r550p/start_ccs_edge_dev.sh')))
++        self.env = dict(os.environ, CCS_EDGE_WORKSPACE=str(self.root), START_SCRIPT=str(self.script))
++
++    def shell(self, code):
++        return subprocess.run(['bash', '-c', 'source "$START_SCRIPT"; ' + code], env=self.env,
++                              capture_output=True, text=True, timeout=15)
++
++    def test_shutdown_without_owned_processes_never_touches_external_master(self):
++        result = self.shell('master_exists() { echo UNEXPECTED; }; shutdown_all 0')
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assertNotIn('UNEXPECTED', result.stdout)
++
++    def test_shutdown_orders_task_release_video_algorithms_drivers_master(self):
++        result = self.shell('''PIDS=(101 102 103 104 105 106); ROSCORE_PID=107; VIDEO_OWNED=true
++stop_process() { echo "stop:$1"; }
++owned_process_alive() { return 0; }
++master_exists() { return 0; }
++release_control() { echo release; }
++run_quiet() { echo "helper:$*"; }
++shutdown_all 0''')
++        self.assertEqual(result.returncode, 0, result.stderr)
++        lines = result.stdout.splitlines()
++        self.assertEqual(lines[0:2], ['stop:106','release'])
++        self.assertIn('stopped --timeout 10', lines[2])
++        self.assertIn('manage_ccs_video.sh stop', lines[3])
++        self.assertEqual(lines[4:10], ['stop:105','stop:104','stop:103','stop:102','stop:101','stop:107'])
++
++    def test_foreign_process_is_not_signaled(self):
++        child = subprocess.Popen(['sleep','30'], start_new_session=True)
++        try:
++            result = self.shell('stop_process ' + str(child.pid))
++            self.assertNotEqual(result.returncode, 0)
++            self.assertIn('ownership changed', result.stdout)
++            self.assertIsNone(child.poll())
++        finally:
++            child.terminate(); child.wait(timeout=3)
++
++    def test_owned_child_receives_int_and_exits(self):
++        child = self.root / 'child.py'
++        child.write_text('import signal,time,sys\nsignal.signal(signal.SIGINT, lambda *a: sys.exit(0))\nopen(sys.argv[1],"w").close()\ntime.sleep(30)\n')
++        result = self.shell('''setsid python3 "$WORKSPACE/child.py" "$WORKSPACE/ready" &
++pid=$!
++for attempt in $(seq 1 100); do [[ -e "$WORKSPACE/ready" ]] && break; sleep .02; done
++owned_process_alive "$pid"
++stop_process "$pid"
++! process_alive "$pid"''')
++        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
++
++    def test_duplicate_startup_lock_is_rejected_and_released(self):
++        first = subprocess.Popen(['bash','-c','source "$START_SCRIPT"; acquire_startup_locks; touch "$WORKSPACE/ready"; exec sleep 30'],env=self.env)
++        try:
++            import time
++            deadline=time.monotonic()+3
++            while not (self.root/'ready').exists() and time.monotonic()<deadline: time.sleep(.02)
++            self.assertTrue((self.root/'ready').exists())
++            result=self.shell('acquire_startup_locks')
++            self.assertNotEqual(result.returncode,0)
++            self.assertIn('legacy startup lock',result.stderr)
++        finally:
++            first.terminate();first.wait(timeout=3)
++        self.assertEqual(self.shell('acquire_startup_locks').returncode,0)
++
++    def test_video_failure_cleans_partial_start_and_does_not_abort_base(self):
++        manager=self.root/'manage_ccs_video.sh'
++        manager.write_text('#!/bin/bash\necho "$1" >>"'+str(self.root/'calls')+'"\n[[ "$1" == stop ]]\n')
++        manager.chmod(0o755)
++        result=self.shell('start_optional_video; [[ "$VIDEO_OWNED" == false ]]; echo BASE_CONTINUES')
++        self.assertEqual(result.returncode,0,result.stderr)
++        self.assertIn('BASE_CONTINUES',result.stdout)
++        self.assertEqual((self.root/'calls').read_text().splitlines(),['start','stop'])
++
++    def test_mapping_stop_refuses_unrelated_live_pid(self):
++        script = os.environ.get('CCS_MAPPING_TEST_PATH')
++        if not script: self.skipTest('deployed mapping script path required')
++        pidfile = self.root / 'mapping.pid'
++        pidfile.write_text(str(os.getpid()) + '\n')
++        Path(str(pidfile) + '.identity').write_text(Path('/proc/self/stat').read_text().split()[21])
++        result = subprocess.run(['bash', script, '--stop', str(pidfile), '1'],
++            env=dict(self.env, CCS_ALGORITHM_LOCK_FILE=str(self.root/'lock')),capture_output=True,text=True,timeout=5)
++        self.assertNotEqual(result.returncode,0)
++        self.assertIn('not owned',result.stderr)
++
++
++if __name__ == '__main__':
++    unittest.main()
+--- /dev/null
++++ b/docs/UGV_003_BASH_STARTUP.md
+@@ -0,0 +1,82 @@
++# UGV_003 启动方式对齐 UGV_004（2026-09-24）
++
++本次读取 UGV_004 实机 `nrc15@192.168.50.123:/home/nrc15/ccs_edge_ws/start_ccs_edge_dev.sh`，确认其内容与本机 `wheeltec_r550p_02` 当前脚本相同。原始 SHA-256 为 `3cabf278e57901e7732aa12036e72bc24935cd790cb8af09a6ede9ca0cd45682`。UGV_004 在本次任务中仅做只读核查。收尾时其入口出现同期外部更新（SHA-256 `cc171152166d67d31c81f24a63ee1761c8486dccfd11ac35986236971c994d02`）：新增可选相机监督、ROS_HOME 和降级处理，主链仍为 Bash。UGV_003 沿用自己的 Bash 视频管理器，没有复制该新增 Python 相机监督入口。两个观测摘要记录在 `evidence/bash_20260924/ugv004-reference.json`。
++
++## 链路对比
++
++| 环节 | UGV_003 原实现 | UGV_004 / UGV_003 新实现 |
++|---|---|---|
++| 启动入口 | Bash 加载环境后 exec Python Supervisor | Bash 加载环境并直接执行启动流程 |
++| 拉起功能包 | Python Popen(start_new_session=True) | Bash `setsid roslaunch ... &` |
++| 进程所有权 | Python Popen 对象和 process group | Bash PID 数组，核验 PPID/PGID/SID |
++| 常驻检查 | Python while 循环 | Bash while 循环，节点失败连续复核三次 |
++| 退出 | Python 信号回调、finally | Bash INT/TERM/EXIT trap |
++| 启动锁/PID | run/startup.lock、run/*.pid | run/managed/startup.lock、run/managed/*.pid |
++| 会话日志 | log 中同名文件追加 | logs/<UTC纳秒时间_PID>，logs/latest 指向本次会话 |
++| 短时检查 | Python 监控内部检查 | 独立预检、SNTP、消息/零轮速检查，执行完即退出 |
++
++UGV_003 额外同时持有旧 `run/startup.lock`，防止迁移时与旧入口并发。拉起的长期子进程关闭锁文件描述符。保留地图/定位互斥锁 `run/algorithm.lock` 及原有状态和地图目录。
++
++移除 `scripts/ugv003_supervisor.py`，启动入口不再 exec 或导入任何 Python Supervisor。新增的 `ccs_wheeltec_preflight.py`、`ccs_sntp_sync.py`、`ccs_wheeltec_readiness.py` 与 UGV_004 一样只负责有限时长检查。ROS 节点自身及按需导航包装代码继续使用其原有语言，不承担一键启动根进程监控。
++
++## UGV_003 保留的设备差异
++
++最初读取的 UGV_004 对照版本使用 V5.1、默认无视频（随后外部更新加入可选相机）；UGV_003 继续使用此前完成的 V6.0 原生集成和可选 Gemini 336L/SRT。没有替换成 UGV_004 的二维导航或 /cmd_vel 底盘直连方案。
++
++- 基础包入口：`epgeneral_wheeltec_integration/base.launch`。
++- 任务入口：`epgeneral_task_control/wheeltec_task_control.launch`，保留 `/wheeltec_control`。
++- 速度链：`move_base -> /nav_cmd_vel -> 安全门 -> /wheeltec_driver/cmd_vel -> 底盘`。
++- 启动及退出使用 `/wheeltec_robot/set_autonomous=false` 归还控制权，并核验真实零轮速；只发送零速度，不触发导航目标。
++- V6 建图、定位、原生地形导航继续由任务按需启动；正常一键启动保持待命。
++- MID-360 地址、安装外参、FAST_LIO 原生包及输出路径保持原状，本次未修改原生工作区或系统网络/授时配置。
++
++## 启动
++
++先启动地面站的 NTP 服务（现有指控平台提供 `192.168.50.101:123/UDP`），再执行：
++
++```bash
++cd /home/nrc19/ccs_edge_ws
++./start_ccs_edge_dev.sh --check
++./start_ccs_edge_dev.sh
++# 仅关闭本次视频：
++CCS_ENABLE_VIDEO=0 ./start_ccs_edge_dev.sh
++```
++
++Ctrl+C 有序退出；SIGTERM 同样收尾。不要全局 pkill ROS。只检查模式不会拉起 ROS 节点。
++
++授时门禁与 UGV_004 相同：等待最多 45 秒，检查实际 SNTP 偏差不超过 0.5 秒；仅 NTP 服务 active 不足以通过。设备刚启动为 1970 年、地面站未运行授时服务时会明确拒绝启动。脚本不会直接设置系统时间。必要服务启动失败会回收本次进程，外部 Master 保留；视频失败只降级并清理本次视频进程。
++
++日志：`logs/latest/startup.log`、各功能包 `.log`、`ros/`、`video/`、`mqtav/`、`relocalization/`。算法历史输出、地图和任务状态路径未迁移。
++
++## 文件与备份
++
++端侧备份：`/home/nrc19/ccs_edge_ws/backups/ugv003_bash_20260924/`。
++
++- 更新：根 `start_ccs_edge_dev.sh`、`manage_ccs_video.sh`。
++- 新增：`scripts/ccs_wheeltec_preflight.py`、`scripts/ccs_wheeltec_readiness.py`、`scripts/ccs_sntp_sync.py`。
++- 删除：`scripts/ugv003_supervisor.py`。
++- 测试：将集成包的 `test_supervisor.py` 替换为 `test_startup.py`，验证真实 Bash 子进程与信号；更新本机 profile 测试。
++- 文档：本文件与 V6 交付说明的当前入口说明，以及本机部署指南/记录。
++
++本次源码、脚本和文档变更只在本机 edge_side_pkg 与 UGV_003 的 ccs_edge_ws 内。没有新增 FAST_LIO 包，没有修改 UGV_004。精确清单和摘要位于 `evidence/bash_20260924/changes.json`，原生审计位于同目录 `native-audit.json`。
++
++## 验证
++
++- 本机 Linux 和端侧：21 项集成回归通过；本机 profile 6 项通过。
++- 实机只检查模式通过，launch 中所有节点可执行文件解析通过。
++- 默认含视频启动进入待命；进程树确认父进程为 Bash、子进程为独立会话的 roslaunch；无 FAST-LIO/move_base 自动启动。
++- 重复启动拒绝；Ctrl+C 退出码 130，所有本次进程有序停止。
++- 必需服务异常退出触发收尾；非本次创建的 Master 不被停止。
++- 冷启动时实测 NTP 缺失会拒绝启动；临时运行现有地面站授时服务后 timesyncd 自动完成校时，验收结束关闭临时授时服务。未改地面站代码或系统授时配置。
++- 未执行运动任务，不把本轮启动验收等同于重新验收全部导航算法；此前 V6 无运动算法验证见 V6 交付说明。
++
++## 回滚到本次修改前
++
++先停止新入口，确认其进程已退出。核对待恢复文件与 `changes.json` 中的已部署摘要一致，再从备份恢复：
++
++```bash
++cd /home/nrc19/ccs_edge_ws
++tar -xzf backups/ugv003_bash_20260924/before.tar.gz -C .
++```
++
++该备份只包含此次替换/删除前的指定入口、视频脚本、旧 Python 监控、旧测试和 V6 交付说明，不包含其他工作空间。再按清单删除本次新增的三份短时检查工具、test_startup.py 和新交付说明。保留 logs、地图、任务及备份。此回滚会恢复旧 Python 启动监控，仅用于明确需要回退本次改造时。
+--- a/docs/UGV_003_V6_DEPLOYMENT.md
++++ b/docs/UGV_003_V6_DEPLOYMENT.md
+@@ -27,6 +27,8 @@
+ - 安装外参不变：前移 0.10 m、上移 0.15 m、前倾 20°。CCS 预览转换改用正确的 `base_link <- body` 正向安装关系。
+ 
+ ## 启动与停止
++
++2026-09-24 起，一键入口已改为与 UGV_004 相同的 Bash `setsid roslaunch`、PID 数组和 trap 管理方式，已删除 Python 启动 Supervisor。当前日志为 `logs/<UTC纳秒时间_PID>`，启动 PID/锁位于 `run/managed`。详见 [Bash 启动对齐说明](UGV_003_BASH_STARTUP.md)；以下 V6 算法与数据配置继续有效。
+ 
+ ```bash
+ cd /home/nrc19/ccs_edge_ws

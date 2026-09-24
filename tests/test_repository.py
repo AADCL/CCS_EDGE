@@ -32,13 +32,38 @@ class RepositoryTests(unittest.TestCase):
         for typ in {v["device_type"] for v in LAYOUT["profiles"].values()}:
             folder = ROOT / "documents/devices" / typ
             self.assertEqual({p.name for p in folder.rglob("*.md")},
-                             ({"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md", "DEPLOYMENT_REPORT.md"} if typ == "uav" else {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"}))
+                             {"DEPLOYMENT_GUIDE.md", "DEPLOYMENT_RECORD.md"})
         for profile, definition in LAYOUT["profiles"].items():
             identity = yaml.safe_load((profile_path(profile)/"config/device.yaml").read_text())["device"]["id"]
             record = ROOT / "documents/devices" / definition["device_type"] / "DEPLOYMENT_RECORD.md"
             self.assertIn(identity, record.read_text(encoding="utf-8"))
         self.assertEqual({p.name for p in (ROOT/"documents").glob("*.md")},
                          {"USER_MANUAL.md", "INTERFACE_REFERENCE.md", "OCTOMAP.md", "UDP_TELEMETRY_GENERIC.md", "VIDEO_SRT_GENERIC.md"})
+
+    def test_uav_profile_uses_flat_ugv_style_runtime_layout(self):
+        profile = profile_path("uav_001")
+        launcher = (profile / "start_ccs_edge_dev.sh").read_text(encoding="utf-8")
+        self.assertIn('${WORKSPACE}/config/uav_001', launcher)
+        self.assertIn('${WORKSPACE}/launch', launcher)
+        self.assertIn('${WORKSPACE}/scripts', launcher)
+        self.assertNotIn('deploy/uav_001', launcher)
+
+        launch = ET.parse(profile / "launch/uav_001_bringup.launch").getroot()
+        args = {item.attrib["name"]: item.attrib for item in launch.findall("arg")}
+        self.assertEqual(args["profile_config_dir"]["default"],
+                         "$(arg workspace)/config/uav_001")
+        serialized = ET.tostring(launch, encoding="unicode")
+        for name in ("device.yaml", "epgeneral_mqtav.yaml", "udp_telemetry.yaml",
+                     "video.yaml", "map_stream.yaml", "relocalization.yaml",
+                     "task_control.yaml"):
+            self.assertIn("$(arg profile_config_dir)/" + name, serialized)
+
+        endpoint_doc = (profile / "DEPLOYMENT.md").read_text(encoding="utf-8")
+        for command in ("cd /home/nrc/ccs_edge_ws",
+                        "./start_ccs_edge_dev.sh --check",
+                        "./start_ccs_edge_dev.sh", "Ctrl+C"):
+            self.assertIn(command, endpoint_doc)
+        self.assertFalse((ROOT / "documents/devices/uav/DEPLOYMENT_REPORT.md").exists())
 
     def test_every_profile_stages_only_selected_complete_packages(self):
         for profile in LAYOUT["profiles"]:

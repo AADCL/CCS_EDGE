@@ -11,6 +11,7 @@ import sys
 import threading
 import tempfile
 import time
+from contextlib import contextmanager
 from datetime import datetime
 
 from .artifacts import ArtifactError, download, install_archive, validate_map_directory
@@ -137,6 +138,32 @@ class RelocalizationNode(TrustedRegionsReceiver):
             self._send(message, cached[0], cached[1])
             return
         kind = message["message_type"]
+        try:
+            with self._navigation_guard():
+                self._dispatch_command(message, kind)
+        except BlockingIOError:
+            self._reply(message, "command_error", {
+                "state": "error", "reason": "NAVIGATION_ACTIVE"})
+        except OSError as exc:
+            self.logger.error("navigation_guard_failed error=%s", exc)
+            self._reply(message, "command_error", {
+                "state": "error", "reason": "NAVIGATION_GUARD_UNAVAILABLE"})
+
+    @contextmanager
+    def _navigation_guard(self):
+        path = self.config.get("navigation_guard_file")
+        if not path:
+            yield
+            return
+        import fcntl
+        with open(os.path.expanduser(path), "a+") as guard:
+            fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                yield
+            finally:
+                fcntl.flock(guard, fcntl.LOCK_UN)
+
+    def _dispatch_command(self, message, kind):
         if kind == "negotiate":
             self._negotiate(message)
             return

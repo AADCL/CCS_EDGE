@@ -63,6 +63,36 @@ class ProtocolTests(unittest.TestCase):
             protocol.encode(message)
 
 
+@unittest.skipUnless(os.name == "posix", "navigation guard uses Linux flock")
+class NavigationGuardTests(unittest.TestCase):
+    def test_active_navigation_rejects_relocalization_without_changing_session(self):
+        import fcntl
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "navigation.lock")
+            node = object.__new__(RelocalizationNode)
+            node.config = {"device_id": "UGV_003", "navigation_guard_file": path}
+            node.response_cache = {}
+            node.identity = {"map_id": "old-map", "device_id": "UGV_003", "session_id": "old"}
+            node.logger = mock.Mock()
+            node._reply = mock.Mock()
+            node._negotiate = mock.Mock()
+            message = {
+                "map_id": "new-map", "device_id": "UGV_003", "session_id": "new",
+                "request_id": "request", "message_type": "negotiate", "payload": {},
+            }
+            with open(path, "a+") as owner:
+                fcntl.flock(owner, fcntl.LOCK_EX)
+                node._handle(message)
+            node._negotiate.assert_not_called()
+            node._reply.assert_called_once_with(message, "command_error", {
+                "state": "error", "reason": "NAVIGATION_ACTIVE"})
+            self.assertEqual(node.identity["map_id"], "old-map")
+
+            node._handle(message)
+            node._negotiate.assert_called_once_with(message)
+
+
 class ArtifactTests(unittest.TestCase):
     def test_install_is_atomic_and_rejects_extra_entries(self):
         with tempfile.TemporaryDirectory() as directory:

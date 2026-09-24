@@ -1,0 +1,24 @@
+{
+  "startup_pid": 4786,
+  "startup_cmdline": "bash /home/nrc19/ccs_edge_ws/start_ccs_edge_dev.sh ",
+  "children": "    PID    PPID    PGID     SID COMMAND\n   4897    4786    4897    4897 /usr/bin/python3 /opt/ros/noetic/bin/roscore\n   4961    4786    4961    4961 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_wheeltec_integration base.launch\n   5143    4786    5143    5143 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_mqtav epgeneral_mqtav.launch config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/epgeneral_mqtav.yaml device_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/device.yaml log_dir:=/home/nrc19/ccs_edge_ws/logs/20260924T020330.953380283Z_4786/mqtav\n   5230    4786    5230    5230 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_udp_telemetry epgeneral_udp_telemetry.launch telemetry_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/udp_telemetry.yaml device_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/device.yaml destination_host:=192.168.50.101 destination_port:=14560 link_status_topic:=/ugv/UGV_003/link/udp_tx diagnostics_topic:=/ugv/UGV_003/diagnostics\n   5318    4786    5318    5318 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_map_stream epgeneral_map_stream.launch mapping_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/map_stream.yaml device_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/device.yaml\n   5403    4786    5403    5403 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_relocalization epgeneral_relocalization.launch config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/relocalization.yaml device_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/device.yaml log_dir:=/home/nrc19/ccs_edge_ws/logs/20260924T020330.953380283Z_4786/relocalization\n   5485    4786    5485    5485 /usr/bin/python3 /opt/ros/noetic/bin/roslaunch epgeneral_task_control wheeltec_task_control.launch task_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/task_control.yaml device_config_file:=/home/nrc19/ccs_edge_ws/config/wheeltec_r550p/device.yaml\n   6062    4786    4786    4786 sleep 2\n",
+  "nodes": [
+    "/camera/camera",
+    "/epgeneral_map_stream",
+    "/epgeneral_mqtav",
+    "/epgeneral_navigation_task_adapter",
+    "/epgeneral_relocalization",
+    "/epgeneral_task_control",
+    "/epgeneral_udp_telemetry",
+    "/epgeneral_video_srt",
+    "/livox_lidar_publisher2",
+    "/rosout",
+    "/wheeltec_camera_mount_tf",
+    "/wheeltec_control",
+    "/wheeltec_robot"
+  ],
+  "duplicate_exit": 1,
+  "duplicate_output": "[ERROR] An existing UGV_003 workflow owns the legacy startup lock.\n",
+  "interrupt_exit": 130,
+  "success": true
+}
