@@ -590,3 +590,6 @@ cd /home/nrc15/ccs_edge_ws
 | `scripts/ccs_sntp_sync.py` | `e7bc6d3e1cf06a441e1963c74b63cb07807a92adfa4d4e1642fcb444b045df3a` |
 | `src/EPGeneral_task_control/launch/wheeltec_ccs_2d_navigation.launch` | `8143724c4b009c29e8364c7722f1eb2a3e2be505dafcff5e66e4625623b409b3` |
 | `config/wheeltec_r550p_02/map_stream.yaml` | `967ef0326e8cec90f27faa673b1c92cffa869aacc0c6637da0158807fc8a1fa1` |
+
+
+UGV_004 本次修复见 [2026-09-24 部署记录](UGV004_FIX_20260924.md)。
