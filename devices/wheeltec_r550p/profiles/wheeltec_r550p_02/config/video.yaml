@@ -1,12 +1,12 @@
-# The R550P has no RGB/depth camera. This profile is installed for future use,
-# but start_ccs_edge_dev.sh deliberately does not launch the video node.
-enabled: false
-camera_model: "not installed"
-image_topic: "/camera/image_raw"
+# Gemini 336L mount is inverted; rotation applies only to encoded video.
+enabled: true
+camera_model: "Orbbec Gemini 336L"
+image_topic: "/camera/color/image_raw"
 image_message_type: "sensor_msgs/Image"
 output_width: 640
 output_height: 480
 framerate: 30
+rotation_degrees: 180
 srt_bind_address: "0.0.0.0"
 srt_port: 9000
 srt_latency_ms: 120
