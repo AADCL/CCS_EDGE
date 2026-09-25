@@ -1,0 +1,14 @@
+--- a/src/FAST_LIO/CMakeLists.txt
++++ b/src/FAST_LIO/CMakeLists.txt
+@@ -7,7 +7,10 @@
+ ADD_COMPILE_OPTIONS(-std=c++14 )
+ set( CMAKE_CXX_FLAGS "-std=c++14 -O3" )
+ 
+-add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
++# UGV_003: all FAST-LIO runtime outputs remain in the CCS workspace.
++set(FASTLIO_RUNTIME_ROOT "/home/nrc19/ccs_edge_ws/log/fastlio" CACHE PATH "FAST-LIO runtime output root")
++file(MAKE_DIRECTORY "${FASTLIO_RUNTIME_ROOT}/Log" "${FASTLIO_RUNTIME_ROOT}/PCD")
++add_definitions(-DROOT_DIR=\"${FASTLIO_RUNTIME_ROOT}/\")
+ 
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions" )
+ set(CMAKE_CXX_STANDARD 14)

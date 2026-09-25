@@ -76,6 +76,15 @@ if [[ "${1:-}" == "--supervise" ]]; then
   TF_NODE="${17:-/scout_tf_manager}"
   GEOMETRY_TF_NODE="${18:-/scout_geometry_tf_publisher}"
   POSE_NODE="${19:-/scout_pose_adapter}"
+  # UGV_003 opts into a shared mapping/localization lease. No native files change.
+  if [[ -n "${CCS_ALGORITHM_LOCK_FILE:-}" ]]; then
+    exec 9>>"${CCS_ALGORITHM_LOCK_FILE}"
+    flock -n 9 || fail "mapping/localization algorithm is already owned"
+    printf '{"kind":"mapping"}\n' >"${CCS_ALGORITHM_LOCK_FILE}"
+    if rosnode list 2>/dev/null | grep -Fxq -- "${FAST_NODE}"; then
+      fail "FAST-LIO is already running outside this mapping session"
+    fi
+  fi
   FAST_PID="" MAPPER_PID="" TF_PID="" POSE_PID="" STOPPING=false
 
   cleanup() {
@@ -148,6 +157,9 @@ if [[ "${1:-}" == "--start" ]]; then
   ) >>"${LOG_FILE}" 2>&1 &
   supervisor_pid=$!
   printf '%s\n' "${supervisor_pid}" >"${PID_FILE}"
+  if [[ -n "${CCS_ALGORITHM_LOCK_FILE:-}" ]]; then
+    awk '{print $22}' /proc/"${supervisor_pid}"/stat >"${PID_FILE}.identity"
+  fi
   deadline=$(awk -v now="$(date +%s)" -v timeout="${START_TIMEOUT}" 'BEGIN {print now + (timeout * 4) + 5}')
   while [[ ! -r "${PID_FILE}.ready" ]]; do
     if ! kill -0 "${supervisor_pid}" 2>/dev/null; then
@@ -171,7 +183,14 @@ if [[ "${1:-}" == "--stop" || "${1:-}" == "--abort" ]]; then
   [[ -r "${PID_FILE}" ]] || fail "mapping PID file is missing: ${PID_FILE}"
   read -r supervisor_pid <"${PID_FILE}"
   [[ "${supervisor_pid}" =~ ^[0-9]+$ ]] || fail "mapping PID is invalid"
-  if kill -0 "${supervisor_pid}" 2>/dev/null; then
+  if child_alive "${supervisor_pid}"; then
+    if [[ -n "${CCS_ALGORITHM_LOCK_FILE:-}" ]]; then
+      [[ -r "${PID_FILE}.identity" ]] || fail "mapping process identity is missing"
+      current_ticks=$(awk '{print $22}' /proc/"${supervisor_pid}"/stat)
+      [[ "${current_ticks}" == "$(cat "${PID_FILE}.identity")" ]] || fail "mapping PID was reused"
+      tr '\0' ' ' </proc/"${supervisor_pid}"/cmdline | grep -Fq -- "--supervise ${PID_FILE}" \
+        || fail "mapping supervisor is not owned by this session"
+    fi
     if [[ "$1" == "--stop" ]]; then
       : >"${PID_FILE}.stop"
     else
@@ -179,7 +198,7 @@ if [[ "${1:-}" == "--stop" || "${1:-}" == "--abort" ]]; then
     fi
     kill -INT "${supervisor_pid}"
     deadline=$(awk -v now="$(date +%s)" -v timeout="${TIMEOUT}" 'BEGIN {print now + (timeout * 4) + 5}')
-    while kill -0 "${supervisor_pid}" 2>/dev/null; do
+    while child_alive "${supervisor_pid}"; do
       if awk -v now="$(date +%s)" -v limit="${deadline}" 'BEGIN {exit !(now >= limit)}'; then
         kill -TERM "${supervisor_pid}" 2>/dev/null || true
         break
@@ -188,6 +207,7 @@ if [[ "${1:-}" == "--stop" || "${1:-}" == "--abort" ]]; then
     done
   fi
   rm -f -- "${PID_FILE}" "${PID_FILE}.ready" "${PID_FILE}.stop"
+  rm -f -- "${PID_FILE}.identity"
   printf 'Scout mapping stack stopped\n'
   exit 0
 fi

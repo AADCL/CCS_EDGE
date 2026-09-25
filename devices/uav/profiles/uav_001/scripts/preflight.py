@@ -5,6 +5,8 @@ import importlib
 import os
 import shutil
 import subprocess
+from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import rospkg
 import yaml
@@ -59,9 +61,11 @@ def _check_mapping_integration():
             % _brief_process_error(completed))
 
 
-def check(root):
+def check(root, config_dir=None, launch_dir=None):
     import msgpack,paho.mqtt.client
-    cfg=root/'src/EPGeneral_device_config/config'
+    root = Path(root)
+    cfg = Path(config_dir) if config_dir else root/'config/uav_001'
+    launches = Path(launch_dir) if launch_dir else root/'launch'
     for name in ('device','epgeneral_mqtav','udp_telemetry','video','map_stream','relocalization','task_control'):
         data=yaml.safe_load((cfg/(name+'.yaml')).read_text())
         if not isinstance(data,dict):raise ValueError(name+' config invalid')
@@ -77,7 +81,9 @@ def check(root):
                  'epgeneral_uav_integration','ducted_bringup','ducted_offboard','mavros','livox_ros_driver2'):
         packs.get_path(name)
     for p in (root/'src/EPGeneral_uav_integration').rglob('*.py'):ast.parse(p.read_text(),filename=str(p))
+    ET.parse(launches/'uav_001_bringup.launch')
     for plugin in ('rtspsrc','decodebin','avdec_h265','x264enc','mpegtsmux','srtsink'):
         subprocess.run(['gst-inspect-1.0',plugin],stdout=subprocess.DEVNULL,check=True)
     _check_mapping_integration()
-    return {'check':'passed','workspace':str(root),'nodes_started':0,'runtime_logs_created':0}
+    return {'check':'passed','workspace':str(root),'profile_config':str(cfg),
+            'nodes_started':0,'runtime_logs_created':0}

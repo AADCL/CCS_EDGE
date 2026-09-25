@@ -1,0 +1,9 @@
+# Preserve the CCS authority/safety envelope over native V6 terrain navigation.
+TebLocalPlannerROS:
+  max_vel_x: 0.20
+  max_vel_theta: 0.40
+  max_vel_x_backwards: 0.15
+  penalty_epsilon: 0.05
+  allow_init_with_backwards_motion: false
+  use_proportional_saturation: false
+  weight_kinematics_forward_drive: 1000.0

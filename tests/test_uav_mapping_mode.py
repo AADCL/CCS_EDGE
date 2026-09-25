@@ -107,6 +107,10 @@ class UavModeContractTests(unittest.TestCase):
         adapter_params = {item.attrib["name"]: item.attrib["value"] for item in adapter.findall("param")}
         self.assertNotIn("mapping_enabled", adapter_params)
         self.assertEqual(adapter_params["execution_enabled"], "$(arg execution_enabled)")
+        self.assertEqual(adapter_params["config_file"],
+                         "$(arg profile_config_dir)/task_control.yaml")
+        self.assertEqual(adapter_params["device_config_file"],
+                         "$(arg profile_config_dir)/device.yaml")
 
         supervisor = SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn("mode.add_argument('--mapping'", supervisor)

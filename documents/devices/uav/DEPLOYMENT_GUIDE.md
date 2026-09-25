@@ -1,33 +1,113 @@
-# UAV_001 部署说明
+# UAV_001 部署与启动指南
 
-更新日期：2026-09-20。设备为“金城涵道无人机”UAV_001，SSH 用户 nrc，IP 192.168.50.140，地面站 192.168.50.101。凭据由操作者提供，不保存到配置或日志。验收结论见[结果报告](DEPLOYMENT_REPORT.md)，过程见[部署记录](DEPLOYMENT_RECORD.md)。
+设备：UAV_001“金城涵道无人机”；端侧：`nrc@192.168.50.140`；工作空间：
+`/home/nrc/ccs_edge_ws`；地面站：`192.168.50.101`。历史部署、实测结果和限制见
+[部署记录](DEPLOYMENT_RECORD.md)。
 
-## 工作空间与安装
+## 当前工作空间结构
 
-端侧 Ubuntu 20.04 ARM64 / ROS Noetic。CCS 独立安装至 /home/nrc/ccs_edge_ws；原生 /home/nrc/catkin_ws、/home/nrc/mavros_catkin_ws、/home/nrc/ws_livox 保持原位。不得复制整个端侧仓库进入 catkin src。
+UAV_001 使用与 UGV_004 相同的平铺启动结构：
 
-在 CCS_EDGE 源码目录：
+```text
+/home/nrc/ccs_edge_ws/
+├── start_ccs_edge_dev.sh
+├── config/uav_001/*.yaml
+├── launch/uav_001_bringup.launch
+├── scripts/{supervisor,preflight,readiness,session_log}.py
+├── src/
+├── logs/
+├── run/managed/
+└── docs/uav_001/DEPLOYMENT.md
+```
 
-~~~bash
+运行入口不读取 `deploy/uav_001`。七份 YAML 的唯一运行副本位于
+`config/uav_001`；修改后必须停止并重新启动，不支持热更新。Catkin 源包仍位于
+`src`，原生 MAVROS、Livox 和涵道无人机工作空间保持独立。
+
+## 日常启动和停止
+
+先启动地面站并确认 MQTT、NTP 和视频接收端可用，然后在端侧执行：
+
+```bash
+cd /home/nrc/ccs_edge_ws
+./start_ccs_edge_dev.sh --check
+./start_ccs_edge_dev.sh
+# 前台按 Ctrl+C 有序停止
+```
+
+`--check`（兼容 `--preflight`）只检查环境、八个 ROS 包、profile 配置、launch、
+GStreamer 插件和 UAV 建图集成，不创建 ROS master、运行日志或 PID 文件。无参数启动
+是日常入口，等价于 `--mapping`：启动基础驱动、通信、视频和阶段管理，允许建图、地图
+保存和重定位，但保持飞行任务及原生控制器禁用。
+
+UAV 专属维护模式继续保留：
+
+```bash
+./start_ccs_edge_dev.sh --static   # 只观察，禁用建图、重定位和飞行执行
+./start_ccs_edge_dev.sh --mapping  # 与无参数启动相同
+./start_ccs_edge_dev.sh --flight   # 显式开放任务执行，仅限独立实飞验收后使用
+```
+
+正常停止使用启动终端的 `Ctrl+C`。`--stop` 仅供失去原终端时请求停止当前受管流程；飞行
+模式下若控制器仍在空中或状态未知，停止会被拒绝并保留控制与定位。不得使用
+`killall`、`pkill` 或直接删除 PID/闭锁文件绕过保护。
+
+## 日志和状态
+
+每次正常启动创建 `logs/<UTC时间_纳秒_PID>/`，`logs/latest` 指向最近一次运行。主要文件：
+
+- `startup.log`：启动模式、阶段摘要和有序退出结果。
+- `runtime_monitor.log`：节点检查重试和异常堆栈。
+- `roscore.log`、`bringup.log`、`ros/`：本次自有 ROS 进程输出。
+- `mqtav/`、`map_stream/`、`relocalization/`：公共包会话日志。
+
+单实例锁、`startup.pid` 和 `startup.json` 位于 `run/managed`。地图、任务和安全状态分别
+保存在 `maps`、`mission`、`run/state`，清理日志或回滚代码时不得覆盖这些状态。
+
+## 配置、接口和就绪检查
+
+七份运行配置位于 `config/uav_001`。基础接口为 MAVROS
+`/mavros/state`、`/mavros/extended_state`、`/mavros/local_position/pose`、
+`/mavros/local_position/velocity_local`、`/mavros/imu/data` 和
+`/mavros/setpoint_position/local`；原生控制器仍是唯一位置目标发布者。
+
+运行栈启动后可执行只读就绪检查：
+
+```bash
+source /home/nrc/ccs_edge_ws/devel/setup.bash --extend
+python3 /home/nrc/ccs_edge_ws/scripts/readiness.py
+```
+
+检查失败必须排查真实 MAVROS、位姿、IMU、Livox 或视频输入，不得用虚拟数据补齐生产
+话题。A8 输入为 `rtsp://192.168.144.25:8554/main.264`，SRT listener 使用端侧 UDP
+9000；网络与视频参数以 `config/uav_001/video.yaml` 为准。
+
+## 安装、升级和回滚
+
+从仓库生成 profile staging：
+
+```bash
 python3 scripts/prepare_profile.py --profile uav_001 --output /tmp/uav001-stage
-# 先备份现有 CCS src/deploy/config 和部署清单，再传输 /tmp/uav001-stage 的内容。
-# 新工作空间才可直接安装，已有部署必须停止且确认落地锁定后升级。
-~~~
+```
 
-八包为七个公共包及 epgeneral_uav_integration。端侧按以下顺序加载并构建：
+安装时将八个包放入 `src`，将 profile 的 `config`、`launch`、`scripts` 分别安装到上述
+平铺目录，并把 profile 启动脚本安装到工作空间根目录。已有部署必须先确认功能栈停止；
+升级前记录源码版本、部署清单和现场文件哈希，并备份所有待覆盖或删除文件。
 
-~~~bash
+构建顺序：
+
+```bash
 source /opt/ros/noetic/setup.bash
 source /home/nrc/mavros_catkin_ws/devel/setup.bash --extend
 source /home/nrc/ws_livox/devel/setup.bash --extend
 source /home/nrc/catkin_ws/devel/setup.bash --extend
 cd /home/nrc/ccs_edge_ws
-rosdep install --from-paths src --ignore-src -r -y
 catkin_make -j2 -l2 -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release
-source devel/setup.bash --extend
-~~~
+```
 
-本次仅增装 python3-msgpack、python3-paho-mqtt。既有 GStreamer、GI、x264、SRT、HEVC 解码器可复用。源文件采用 LF；脚本和 shebang 文件权限 0755，其余 0644。deployed_manifest.json 记录实际源文件的 SHA-256、字节数和权限。
+回滚只恢复本次备份的启动文件、配置和文档，随后重新构建并执行 `--check`。不得回滚
+`maps`、`mission`、`run/state`、原生地图、最新急停或飞行故障状态。当前部署不设置
+systemd 服务或开机自启。
 
 ## 启动、预检与停止
 
@@ -126,3 +206,5 @@ sudo ip address del 192.168.144.140/24 dev eth0
 ~~~
 
 原网络快照在 /home/nrc/.deployment_backups/UAV_001-20260920/。测试用 RTSP 丢包规则已自动清除；无线省电诊断完成后恢复原值 on。不得恢复整个旧网络文件覆盖后续变动，也不得覆盖原生标定。
+
+静态检查和模拟任务验收不等同于实飞验收；direct 控制不提供自动避障。

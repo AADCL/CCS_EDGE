@@ -5,9 +5,9 @@ ACTION="${1:-status}"
 WORKSPACE="${CCS_EDGE_WORKSPACE:-/home/nrc19/ccs_edge_ws}"
 LIVOX_SETUP="${CCS_LIVOX_SETUP:-/home/nrc19/livox_fastlio/devel/setup.bash}"
 PROFILE_CONFIG_DIR="${CCS_EDGE_PROFILE_CONFIG_DIR:-${WORKSPACE}/config/wheeltec_r550p}"
-STATE_DIR="${CCS_EDGE_STATE_DIR:-${HOME}/.ros/ccs_edge_dev_wheeltec_r550p}"
-LOG_DIR="${STATE_DIR}/log"
-PID_DIR="${STATE_DIR}/run/video"
+STATE_DIR="${CCS_EDGE_WORKSPACE:-/home/nrc19/ccs_edge_ws}/run"
+LOG_DIR="${CCS_EDGE_VIDEO_LOG_DIR:-${WORKSPACE}/log}"
+PID_DIR="${STATE_DIR}/video"
 COLOR_TOPIC="/camera/color/image_raw"
 
 mkdir -p "${LOG_DIR}" "${PID_DIR}"
@@ -15,31 +15,43 @@ mkdir -p "${LOG_DIR}" "${PID_DIR}"
 [[ -r "${LIVOX_SETUP}" ]] || { echo "Wheeltec underlay setup is missing" >&2; exit 1; }
 [[ -r "${WORKSPACE}/devel/setup.bash" ]] || { echo "CCS overlay setup is missing" >&2; exit 1; }
 source /opt/ros/noetic/setup.bash
-source "${LIVOX_SETUP}"
+source "${LIVOX_SETUP}" --extend
 source "${WORKSPACE}/devel/setup.bash" --extend
 export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
 export ROS_IP="${CCS_ROS_IP:-192.168.50.122}"
+export ROS_HOME="${WORKSPACE}/run/ros_home" ROS_LOG_DIR="${ROS_LOG_DIR:-${WORKSPACE}/log/ros}"
+export PYTHONDONTWRITEBYTECODE=1
+mkdir -p "${ROS_HOME}" "${ROS_LOG_DIR}"
+exec 8>"${PID_DIR}/manager.lock"
+flock -n 8 || { echo "Video manager is busy" >&2; exit 1; }
+OWNER="${CCS_OWNER_TOKEN:-standalone}"
 
-pid_running() {
-  local file="$1" pid
-  [[ -r "${file}" ]] || return 1
-  read -r pid <"${file}" || return 1
-  [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null
+record_pid() {
+  local file="$1" pid="$2" ticks
+  ticks="$(awk '{print $22}' /proc/"${pid}"/stat)"
+  printf '%s %s %s\n' "${pid}" "${ticks}" "${OWNER}" >"${file}"
 }
-
+pid_running() {
+  local file="$1" pid ticks owner current pgid
+  [[ -r "${file}" ]] || return 1
+  read -r pid ticks owner <"${file}" || return 1
+  [[ "${pid}" =~ ^[0-9]+$ && "${ticks}" =~ ^[0-9]+$ ]] || return 1
+  [[ -r /proc/"${pid}"/stat ]] || return 1
+  current="$(awk '{print $22}' /proc/"${pid}"/stat)"
+  pgid="$(ps -o pgid= -p "${pid}" | tr -d ' ')"
+  [[ "${current}" == "${ticks}" && "${pgid}" == "${pid}" ]] || return 1
+  tr '\0' ' ' </proc/"${pid}"/cmdline | grep -Eq 'roslaunch.*(camera.launch|wheeltec_orbbec336l.launch|epgeneral_video_srt.launch)'
+}
 stop_process() {
-  local name="$1" file="${PID_DIR}/$1.pid" pid attempt
-  if ! pid_running "${file}"; then
-    rm -f "${file}"
-    return
-  fi
-  read -r pid <"${file}"
-  kill "${pid}" 2>/dev/null || true
-  for attempt in $(seq 1 30); do
-    kill -0 "${pid}" 2>/dev/null || break
-    sleep 0.2
-  done
-  kill -KILL "${pid}" 2>/dev/null || true
+  local name="$1" file="${PID_DIR}/$1.pid" pid ticks owner attempt
+  pid_running "${file}" || { rm -f "${file}"; return; }
+  read -r pid ticks owner <"${file}"
+  [[ -z "${CCS_OWNER_TOKEN:-}" || "${owner}" == "${OWNER}" ]] || { echo "EXTERNAL ${name}"; return; }
+  kill -INT -- "-${pid}" 2>/dev/null || true
+  for attempt in $(seq 1 100); do pid_running "${file}" || break; sleep 0.2; done
+  if pid_running "${file}"; then kill -TERM -- "-${pid}" 2>/dev/null || true; fi
+  for attempt in $(seq 1 20); do pid_running "${file}" || break; sleep 0.2; done
+  if pid_running "${file}"; then echo "Unable to stop owned ${name}" >&2; return 1; fi
   rm -f "${file}"
   echo "STOPPED ${name}"
 }
@@ -66,8 +78,8 @@ start_video() {
     camera_external=true
   elif ! pid_running "${PID_DIR}/camera.pid"; then
     setsid roslaunch epgeneral_video_srt camera.launch config_dir:="${PROFILE_CONFIG_DIR}" \
-      >"${LOG_DIR}/camera.log" 2>&1 </dev/null &
-    printf '%s\n' "$!" >"${PID_DIR}/camera.pid"
+      >"${LOG_DIR}/camera.log" 2>&1 </dev/null 8>&- &
+    record_pid "${PID_DIR}/camera.pid" "$!"
     started+=(camera)
   fi
   if ! wait_for_camera_frame "${COLOR_TOPIC}"; then
@@ -82,8 +94,8 @@ start_video() {
     setsid roslaunch epgeneral_video_srt epgeneral_video_srt.launch \
       device_config_file:="${PROFILE_CONFIG_DIR}/device.yaml" \
       video_config_file:="${PROFILE_CONFIG_DIR}/video.yaml" \
-      >"${LOG_DIR}/video_srt.log" 2>&1 </dev/null &
-    printf '%s\n' "$!" >"${PID_DIR}/video_srt.pid"
+      >"${LOG_DIR}/video_srt.log" 2>&1 </dev/null 8>&- &
+    record_pid "${PID_DIR}/video_srt.pid" "$!"
     started+=(video_srt)
   fi
   for attempt in $(seq 1 30); do

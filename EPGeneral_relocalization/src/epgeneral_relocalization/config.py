@@ -63,6 +63,8 @@ def load_config(path, device_path):
                         stability["timeout_seconds"])),
             "startup_timeout_seconds": float(ros["startup_timeout_seconds"]),
             "stages": list(ros["stages"]),
+            "algorithm_lock_file": str(ros.get("algorithm_lock_file", "")),
+            "navigation_guard_file": str(ros.get("navigation_guard_file", "")),
             "tf_timeout_seconds": float(stability["timeout_seconds"]),
             "tf_sample_hz": float(stability["sample_hz"]),
             "tf_sample_count": int(stability["sample_count"]),

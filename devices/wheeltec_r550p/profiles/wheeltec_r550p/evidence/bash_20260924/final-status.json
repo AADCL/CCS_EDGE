@@ -1,0 +1,9 @@
+{
+  "ros_processes_remaining": [],
+  "startup_pid_files": [],
+  "localization_state": {
+    "schema_version": 2,
+    "status": "idle",
+    "map_id": ""
+  }
+}

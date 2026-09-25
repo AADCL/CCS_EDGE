@@ -1,0 +1,8 @@
+<launch>
+  <arg name="map_name"/><arg name="workspace" default="$(optenv CCS_EDGE_WORKSPACE /home/nrc19/ccs_edge_ws)"/>
+  <include file="$(find wheeltec_pointcloud_mapper)/launch/include/pointcloud_mapper.launch.xml">
+    <arg name="map_name" value="$(arg map_name)"/>
+    <arg name="output_path" value="$(arg workspace)/maps/mapping/$(arg map_name)/filtered_camera_init.pcd"/>
+    <arg name="trajectory_output_path" value="$(arg workspace)/maps/mapping/$(arg map_name)/traversed_path_map.pcd"/>
+  </include>
+</launch>

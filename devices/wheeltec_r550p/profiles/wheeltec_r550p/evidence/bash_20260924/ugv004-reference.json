@@ -1,0 +1,7 @@
+{
+  "host": "192.168.50.123",
+  "initial_sha256": "3cabf278e57901e7732aa12036e72bc24935cd790cb8af09a6ede9ca0cd45682",
+  "final_observed_sha256": "cc171152166d67d31c81f24a63ee1761c8486dccfd11ac35986236971c994d02",
+  "writes_by_this_task": false,
+  "concurrent_change": "Optional camera supervisor and ROS_HOME/degradation additions observed; root workflow remains Bash."
+}

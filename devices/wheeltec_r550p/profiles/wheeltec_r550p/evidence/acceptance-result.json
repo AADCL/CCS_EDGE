@@ -1,0 +1,26 @@
+{
+  "map_id": "static_acceptance",
+  "motion_goals_sent": 0,
+  "nonzero_commands": 0,
+  "localization_transform": [
+    -0.12906691724243505,
+    0.0664572841495944,
+    -0.010007775874621079,
+    -0.02683810228875255,
+    0.00038629855596164026,
+    0.30396789479423336,
+    0.9523041051819131
+  ],
+  "navigation_ready": {
+    "map_id": "static_acceptance",
+    "ready": true,
+    "reason": "fresh inputs and required nodes",
+    "monotonic": 9117.645322396,
+    "pid": 33757
+  },
+  "velocity_subscribers": "Type: geometry_msgs/Twist\n\nPublishers: \n * /wheeltec_safety (http://ubuntu:44569/)\n\nSubscribers: \n * /wheeltec_robot (http://192.168.50.122:43645/)\n * /ccs_static_acceptance_33369_1790154135745 (http://ubuntu:45211/)\n\n\n",
+  "gate_eligible_after_idle": true,
+  "emergency_stop": true,
+  "reset_to_manual": true,
+  "success": true
+}

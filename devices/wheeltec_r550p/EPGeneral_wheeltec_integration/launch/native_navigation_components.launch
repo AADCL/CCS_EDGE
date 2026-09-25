@@ -1,0 +1,11 @@
+<launch>
+  <arg name="map_name"/><arg name="map_dir"/>
+  <arg name="odom_topic" default="/odom"/><arg name="cmd_vel_topic" default="/wheeltec_driver/cmd_vel"/>
+  <include file="$(find wheeltec_navigation)/launch/navigation_teb.launch">
+    <arg name="map_name" value="$(arg map_name)"/><arg name="map_dir" value="$(arg map_dir)/native_v60"/>
+    <arg name="nav_map_yaml" value="$(arg map_dir)/native_v60/map_raw.yaml"/>
+    <arg name="terrain_map_yaml" value="$(arg map_dir)/native_v60/terrain_2p5d.yaml"/>
+    <arg name="odom_topic" value="$(arg odom_topic)"/><arg name="cmd_vel_topic" value="$(arg cmd_vel_topic)"/>
+    <arg name="planner_overrides" value="$(find epgeneral_wheeltec_integration)/config/planner_overrides.yaml"/>
+  </include>
+</launch>

@@ -1,0 +1,6 @@
+{
+  "source_matches_native": true,
+  "runtime_root": "/home/nrc19/ccs_edge_ws/log/fastlio",
+  "binary_sha256": "40e91f750f264c24c0d0509eaef0f079d9bddd683aaa705d369f9da13fb1584c",
+  "source_parameter": "/home/nrc19/livox_fastlio/src/FAST_LIO/CMakeLists.txt"
+}

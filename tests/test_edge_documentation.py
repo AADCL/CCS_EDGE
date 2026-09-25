@@ -82,6 +82,7 @@ class EdgeDocumentationTests(unittest.TestCase):
             "EPGeneral_relocalization", "EPGeneral_ground_air_control",
             "EPGeneral_task_control", "EPGeneral_go2_integration",
             "EPGeneral_udp_telemetry", "EPGeneral_video_srt", "EPGeneral_uav_integration",
+            "EPGeneral_wheeltec_integration",
         })
         for manifest in manifests:
             tree = ElementTree.parse(manifest).getroot()

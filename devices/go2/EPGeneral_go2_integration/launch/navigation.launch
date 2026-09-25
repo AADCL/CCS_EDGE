@@ -16,5 +16,7 @@
   <include file="$(find go2_navigation)/launch/navigation_stack.launch">
     <arg name="map_name" value="$(arg map_name)"/>
     <arg name="map_root" value="$(arg map_root)"/>
+    <!-- The real SDK bridge admits velocity only after a fresh-goal handshake. -->
+    <arg name="require_motion_state" value="true"/>
   </include>
 </launch>

@@ -12,7 +12,8 @@
   "special_packages": {
     "EPGeneral_go2_integration": "devices/go2/EPGeneral_go2_integration",
     "EPGeneral_ground_air_control": "devices/ground_air_agv/EPGeneral_ground_air_control",
-    "EPGeneral_uav_integration": "devices/uav/EPGeneral_uav_integration"
+    "EPGeneral_uav_integration": "devices/uav/EPGeneral_uav_integration",
+    "EPGeneral_wheeltec_integration": "devices/wheeltec_r550p/EPGeneral_wheeltec_integration"
   },
   "profiles": {
     "go2_edu": {
@@ -42,7 +43,7 @@
     "wheeltec_r550p": {
       "device_type": "wheeltec_r550p",
       "path": "devices/wheeltec_r550p/profiles/wheeltec_r550p",
-      "additional_packages": []
+      "additional_packages": ["EPGeneral_wheeltec_integration"]
     },
     "wheeltec_r550p_02": {
       "device_type": "wheeltec_r550p",

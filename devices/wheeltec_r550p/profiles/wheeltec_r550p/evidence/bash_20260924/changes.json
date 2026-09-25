@@ -1,0 +1,52 @@
+{
+  "start_ccs_edge_dev.sh": {
+    "status": "modified",
+    "before_sha256": "102aaf3d9733477a63282347154726511a6ec612e0443658e2b87ec6d225cf9f",
+    "after_sha256": "621023be9c5fe12946a53d1763d404141d9ffb2ec96901c55813d1200e932cea"
+  },
+  "manage_ccs_video.sh": {
+    "status": "modified",
+    "before_sha256": "09dbded7dc34c1910d3e81b46d591381a6795c0ccf3f01f491f11ac2a6b60b65",
+    "after_sha256": "0db9073ed8a0738df7fdcd6cea0f2497947c5ae671d5ef1f4b62bd516d87f347"
+  },
+  "scripts/ugv003_supervisor.py": {
+    "status": "removed",
+    "before_sha256": "c99f0f3ead8b98b4461e836461e663010afb64ec52719b3a8c14df823acd7578",
+    "after_sha256": null
+  },
+  "scripts/ccs_wheeltec_preflight.py": {
+    "status": "added",
+    "before_sha256": null,
+    "after_sha256": "d71e478a4024c0e0d15991ddbffdbf40c5d3573d3b0de3c5f96716e6405284f4"
+  },
+  "scripts/ccs_wheeltec_readiness.py": {
+    "status": "added",
+    "before_sha256": null,
+    "after_sha256": "eeb73ac9ab0ef57ad17a17e8be6609c05229a84812fcdcb1b665943b106e4d33"
+  },
+  "scripts/ccs_sntp_sync.py": {
+    "status": "added",
+    "before_sha256": null,
+    "after_sha256": "9aeb2b523d634e1b235d0f02558380b414f306762d3adbe0542cd6b405a4a9b3"
+  },
+  "src/EPGeneral_wheeltec_integration/test/test_supervisor.py": {
+    "status": "removed",
+    "before_sha256": "899262648b65c4b8b960d57134b83e16e91edad423ee6db576902b59f6ad7e20",
+    "after_sha256": null
+  },
+  "src/EPGeneral_wheeltec_integration/test/test_startup.py": {
+    "status": "added",
+    "before_sha256": null,
+    "after_sha256": "5f6573323b751b52094af9217f7eb0556f03b41c1d2c62ac134a558f0679c4b8"
+  },
+  "docs/UGV_003_BASH_STARTUP.md": {
+    "status": "added",
+    "before_sha256": null,
+    "after_sha256": "97709f054aa394c6d319ef3168bdfe65585ae3aa4bad334af57e7948d0ebb408"
+  },
+  "docs/UGV_003_V6_DEPLOYMENT.md": {
+    "status": "modified",
+    "before_sha256": "291103bf4ac2c4a284890a33dbdc0349514ab0d8bf05bc2b6709329a90ccfaa7",
+    "after_sha256": "64b7a9aff22abe04a07ee578ac4d8834d5534688c5fcecb79b2410fbfe2a07ab"
+  }
+}

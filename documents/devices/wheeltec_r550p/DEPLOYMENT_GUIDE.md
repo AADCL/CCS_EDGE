@@ -348,8 +348,7 @@ sha256sum "$BACKUP/ccs-code-build.tar.gz" > "$BACKUP/ccs-code-build.tar.gz.sha25
 
 ## UGV_003 保留说明（不属于上述安装流程）
 
-UGV_003 保留远程 main 已合入的导航、控制权、视频和倒车安全修复：二维导航采用 wheeltec_ccs_2d_navigation.launch，里程计 /odom，导航速度 /nav_cmd_vel；设备算法工作空间位于 /home/nrc19。不要用 UGV_004 的 launch 覆盖它。安装 profile 中 manage_ccs_video.sh、driver_patch、safety_patch 以及 launch，具体补丁和回滚流程见本页后半部分。Gemini 336L/SRT 可启动，CCS_ENABLE_VIDEO=0 可以关闭本次视频入口。
-
+UGV_003 当前使用 V6 原生集成包 `epgeneral_wheeltec_integration`，保留控制权、急停、受保护速度链和 Gemini 336L/SRT。2026-09-24 已按 UGV_004 实机入口改用 Bash 直接管理 `setsid roslaunch`、PID 数组及 trap，删除 Python 启动监控；不替换其 V6 导航为 UGV_004 的 V5.1 二维导航。`CCS_ENABLE_VIDEO=0` 可关闭本次视频。当前细节、对比、验证及回滚见 [UGV_003 Bash 启动说明](../../../devices/wheeltec_r550p/profiles/wheeltec_r550p/UGV_003_BASH_STARTUP.md)。
 <a id="documents-wheeltec-r550p-deployment-md"></a>
 <a id="documents-wheeltec-r550p-deployment-md-ugv_003-文档已合并"></a>
 <a id="documents-wheeltec-r550p-deployment-md-wheeltech-r550p-端侧部署说明"></a>

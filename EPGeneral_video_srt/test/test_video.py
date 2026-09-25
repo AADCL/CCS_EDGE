@@ -108,7 +108,7 @@ class VideoConfigTests(unittest.TestCase):
         paths = list((ROOT / "devices").glob("*/profiles/*/config/video.yaml"))
         self.assertEqual(len(paths), 8)
         expected = {"go2_robot2": (30, 0, True), "go2_robot3": (15, 0, True),
-                    "wheeltec_r550p": (30, 180, True), "wheeltec_r550p_02": (30, 0, False),
+                    "wheeltec_r550p": (30, 180, True), "wheeltec_r550p_02": (30, 0, True),
                     "uav_001": (15, 0, True)}
         for path in paths:
             c = load_config(path, path.with_name("device.yaml"))

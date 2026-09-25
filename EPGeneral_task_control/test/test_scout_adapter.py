@@ -18,6 +18,23 @@ from epgeneral_task_control.storage import TrajectoryStore
 
 
 class ScoutAdapterCoreTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "navigation guard uses Linux flock")
+    def test_navigation_launch_failure_releases_relocalization_guard(self):
+        import fcntl
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "navigation.lock")
+            adapter = ScoutNavigationAdapter.__new__(ScoutNavigationAdapter)
+            adapter.config = {"navigation_guard_file": path}
+            adapter.navigation_guard = None
+            adapter._launch_navigation = Mock(side_effect=OSError("launch failed"))
+            with self.assertRaises(OSError):
+                adapter._start_navigation("map-1")
+            self.assertIsNone(adapter.navigation_guard)
+            with open(path, "a+") as guard:
+                fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(guard, fcntl.LOCK_UN)
+
     def payload(self):
         return {
             "schema_version": 2, "task_id": "task-1", "subtask_id": "sub-1",
@@ -125,6 +142,33 @@ class ScoutAdapterCoreTests(unittest.TestCase):
         adapter.client.cancel_all_goals.assert_called_once_with()
         adapter.control_safety.stop.assert_called_once_with("control state is stale")
         adapter.control_safety.disarm.assert_not_called()
+
+    def test_direct_driver_waits_for_goal_cancel_before_manual_release(self):
+        adapter, command = self._adapter_with_control_safety()
+        adapter.config = {"control_authority": {"safety_gate_enabled": False}}
+        adapter.rospy = types.SimpleNamespace(Duration=lambda seconds: seconds)
+        adapter.client.get_state.side_effect = [1, 2]
+        adapter.client.wait_for_result.return_value = True
+
+        adapter._finish_control(command, "stopped", 0, 0.0, "task stopped", "")
+
+        adapter.client.wait_for_result.assert_called_once_with(1.0)
+        adapter.control_safety.disarm.assert_called_once_with()
+        adapter.control_safety.stop.assert_not_called()
+
+    def test_direct_driver_latches_stop_if_goal_cancel_is_unconfirmed(self):
+        adapter, command = self._adapter_with_control_safety()
+        adapter.config = {"control_authority": {"safety_gate_enabled": False}}
+        adapter.rospy = types.SimpleNamespace(Duration=lambda seconds: seconds)
+        adapter.client.get_state.return_value = 1
+        adapter.client.wait_for_result.return_value = False
+
+        adapter._finish_control(command, "stopped", 0, 0.0, "task stopped", "")
+
+        adapter.control_safety.stop.assert_called_once_with("task stopped")
+        adapter.control_safety.disarm.assert_not_called()
+        self.assertEqual(adapter._feedback.call_args.args[1], "failed")
+        self.assertEqual(adapter._feedback.call_args.args[5], "CONTROL_STOP_FAILED")
 
     def test_terminal_action_result_rechecks_control_health(self):
         class MoveBaseGoal(object):

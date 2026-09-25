@@ -33,8 +33,8 @@ CCS_EDGE 是 [CCS 地面站](https://github.com/AADCL/CCS_dev)配套的独立 RO
 | 重定位 | 地图切换、初始位姿接入、定位状态与 TF 上报 |
 | 任务与控制 | 任务接收和执行协调、导航适配、控制权与急停处理 |
 
-**仓库规模：10 个 ROS 包 · 5 类机型 · 8 套 profile。**
-七个公共包直接放在仓库根目录，Go2、UAV 与 Ground-Air 专用包放在对应的 `devices/` 目录。
+**仓库规模：11 个 ROS 包 · 5 类机型 · 8 套 profile。**
+七个公共包直接放在仓库根目录，Go2、UAV、Ground-Air 与 Wheeltec 专用包放在对应的 `devices/` 目录。
 每台设备选择七个公共包及所需专用包；公共包内部已有的设备后端继续保留。
 
 ## 选择获取方式
@@ -122,8 +122,8 @@ rospack find epgeneral_device_config
 | --- | --- | --- | --- |
 | Go2 | `go2_edu`、`go2_robot2`、`go2_robot3` | 七公共包；Robot2/3 另加 Go2 integration | [部署指南](documents/devices/go2/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/go2/DEPLOYMENT_RECORD.md) |
 | Scout Mini | `scout_mini` | 七公共包 | [部署指南](documents/devices/scout_mini/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/scout_mini/DEPLOYMENT_RECORD.md) |
-| Wheeltec R550P | `wheeltec_r550p`、`wheeltec_r550p_02` | 七公共包 | [部署指南](documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md) |
-| UAV | `uav_001` | 七公共包，另加 UAV integration | [部署指南](documents/devices/uav/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/uav/DEPLOYMENT_RECORD.md) · [部署报告](documents/devices/uav/DEPLOYMENT_REPORT.md) |
+| Wheeltec R550P | `wheeltec_r550p`、`wheeltec_r550p_02` | 七公共包；UGV_003 另加 Wheeltec integration | [部署指南](documents/devices/wheeltec_r550p/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/wheeltec_r550p/DEPLOYMENT_RECORD.md) |
+| UAV | `uav_001` | 七公共包，另加 UAV integration | [部署指南](documents/devices/uav/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/uav/DEPLOYMENT_RECORD.md) |
 | Ground-Air AGV | `ground_air_agv` | 七公共包，另加 Ground-Air control | [部署指南](documents/devices/ground_air_agv/DEPLOYMENT_GUIDE.md) · [部署记录](documents/devices/ground_air_agv/DEPLOYMENT_RECORD.md) |
 
 配置、部署脚本、适配 launch、补丁与校验文件统一位于 `devices/<机型>/profiles/<profile>/`。
@@ -150,8 +150,9 @@ rospack find epgeneral_device_config
 | [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
 | [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.6.0 | 重定位与定位状态上报 |
 | [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.4 | 任务与导航执行协调 |
-| [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.2 | Go2 原生控制、状态与流程适配 |
+| [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.3 | Go2 原生控制、状态与流程适配 |
 | [EPGeneral_uav_integration](devices/uav/EPGeneral_uav_integration/README.md) | `epgeneral_uav_integration` | 0.1.0 | UAV 原生建图、重定位与飞行阶段适配 |
+| [EPGeneral_wheeltec_integration](devices/wheeltec_r550p/EPGeneral_wheeltec_integration/README.md) | `epgeneral_wheeltec_integration` | 0.1.0 | UGV_003 原生导航与地图适配 |
 | [EPGeneral_ground_air_control](devices/ground_air_agv/EPGeneral_ground_air_control/README.md) | `epgeneral_ground_air_control` | 0.2.0 | Ground-Air 地面任务、控制权与急停 |
 
 ## 目录结构

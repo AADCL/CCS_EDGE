@@ -1,0 +1,14 @@
+<launch>
+  <arg name="map_dir"/><arg name="map_pcd" default="$(arg map_dir)/public_map.pcd"/>
+  <arg name="map_yaml" default="$(arg map_dir)/map.yaml"/>
+  <include file="$(find wheeltec_system_bringup)/launch/include/fastlio_local_odom.launch.xml"/>
+  <include file="$(find wheeltec_tf_manager)/launch/include/tf_manager.launch.xml"/>
+  <include file="$(find wheeltec_pose_adapter)/launch/include/pose_adapter.launch.xml"/>
+  <include file="$(find wheeltec_cloud_adapter)/launch/include/cloud_adapter.launch.xml"/>
+  <include file="$(find wheeltec_system_bringup)/launch/include/wheeltec_relocalization.launch.xml">
+    <arg name="map_pcd" value="$(arg map_pcd)"/>
+  </include>
+  <node pkg="map_server" type="map_server" name="wheeltec_map_server" args="$(arg map_yaml)" required="true" output="screen">
+    <remap from="map" to="/map_2d"/>
+  </node>
+</launch>

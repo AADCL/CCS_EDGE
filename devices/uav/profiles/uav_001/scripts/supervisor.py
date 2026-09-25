@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Own one ROS master/launch; refuse shutdown while an owned controller is airborne."""
 import argparse,fcntl,json,os,signal,socket,subprocess,sys,time
+from datetime import datetime, timezone
 from pathlib import Path
 from preflight import check
 from session_log import SessionLog
 LOG=SessionLog()
-ROOT=Path('/home/nrc/ccs_edge_ws')
-PROFILE=Path(__file__).resolve().parents[1]
+ROOT=Path(os.environ.get('CCS_EDGE_WORKSPACE','/home/nrc/ccs_edge_ws')).resolve()
+PROFILE_CONFIG=Path(os.environ.get('CCS_EDGE_PROFILE_CONFIG_DIR',str(ROOT/'config/uav_001'))).resolve()
+PROFILE_LAUNCH=Path(os.environ.get('CCS_EDGE_PROFILE_LAUNCH_DIR',str(ROOT/'launch'))).resolve()
 def port_free(port,kind):
     with socket.socket(socket.AF_INET,kind) as s:
         s.bind(('0.0.0.0',port))
@@ -18,10 +20,11 @@ def main():
     mode.add_argument('--stop',action='store_true')
     a=p.parse_args()
     if a.check:
-        check(ROOT)
+        check(ROOT,PROFILE_CONFIG,PROFILE_LAUNCH)
         LOG.report('OK','UAV_001 configuration and dependencies passed; no nodes or runtime logs created.')
         return
-    record=ROOT/'run/supervisor.json'
+    state_dir=ROOT/'run/managed'
+    record=state_dir/'startup.json'
     if a.stop:
         if not record.exists():
             LOG.report('OK','UAV_001 supervisor is already stopped.');return
@@ -34,17 +37,19 @@ def main():
         os.kill(pid,signal.SIGTERM)
         LOG.report('INFO','Stop requested; wait for the supervisor shutdown result.')
         return
-    check(ROOT)
+    check(ROOT,PROFILE_CONFIG,PROFILE_LAUNCH)
     LOG.report('OK','UAV_001 configuration and dependencies passed.')
-    (ROOT/'run').mkdir(parents=True,exist_ok=True)
-    with (ROOT/'run/supervisor.lock').open('a') as lock:
+    state_dir.mkdir(parents=True,exist_ok=True)
+    with (state_dir/'startup.lock').open('a') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise RuntimeError('UAV_001 workflow is already running') from None
         for port,kind in ((11311,socket.SOCK_STREAM),(14562,socket.SOCK_STREAM),(9000,socket.SOCK_DGRAM),(14561,socket.SOCK_DGRAM),
                           (14563,socket.SOCK_DGRAM),(14565,socket.SOCK_DGRAM)):
             try:port_free(port,kind)
             except OSError as error:raise RuntimeError('Required port %s is unavailable: %s'%(port,error)) from error
-        logs=ROOT/'logs'/('session-'+time.strftime('%Y%m%d-%H%M%S')+'-'+str(os.getpid()))
+        now=datetime.now(timezone.utc)
+        run_id=now.strftime('%Y%m%dT%H%M%S.')+('%09d'%((time.time_ns())%1000000000))+'Z_'+str(os.getpid())
+        logs=ROOT/'logs'/run_id
         logs.mkdir(parents=True);os.environ['ROS_LOG_DIR']=str(logs/'ros')
         LOG.attach(logs)
         latest=logs.parent/'latest'
@@ -82,13 +87,16 @@ def main():
                 try:stage[:]=[json.loads(msg.data),time.monotonic()]
                 except ValueError:pass
             rospy.Subscriber('/uav/UAV_001/stage_status',String,sample)
-            launch=spawn(['roslaunch',str(PROFILE/'launch/uav_001_bringup.launch'),
+            launch=spawn(['roslaunch',str(PROFILE_LAUNCH/'uav_001_bringup.launch'),
+                          'workspace:='+str(ROOT),
+                          'profile_config_dir:='+str(PROFILE_CONFIG),
                           'mapping_enabled:='+str(mapping_enabled).lower(),
                           'execution_enabled:='+str(execution_enabled).lower(),
                           'log_dir:='+str(logs)],'bringup')
             record.write_text(json.dumps(dict(pid=os.getpid(),master_pid=master.pid,launch_pid=launch.pid,
-                                             mode=runtime_mode,mapping_enabled=mapping_enabled,
-                                             execution_enabled=execution_enabled,logs=str(logs))))
+                                              mode=runtime_mode,mapping_enabled=mapping_enabled,
+                                              execution_enabled=execution_enabled,logs=str(logs))))
+            (state_dir/'startup.pid').write_text(str(os.getpid())+'\n')
             LOG.report('INFO','UAV_001 bringup launched; waiting for required ROS nodes.')
             started=time.monotonic();checked=0.;missing=0
             required={'/mavros','/livox_lidar_publisher2','/epgeneral_mqtav','/epgeneral_udp_telemetry',
@@ -159,6 +167,8 @@ def main():
                         os.killpg(child.pid,signal.SIGTERM);child.wait(timeout=10)
             for f in files:f.close()
             if record.exists():record.unlink()
+            pid_file=state_dir/'startup.pid'
+            if pid_file.exists():pid_file.unlink()
             LOG.report('OK','Owned UAV_001 processes stopped.')
 
 def run():

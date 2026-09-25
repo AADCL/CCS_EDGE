@@ -1,53 +1,75 @@
 schema_version: 2
-protocol_id: "ccs-task-control-v2"
-network: {bind_host: "0.0.0.0", control_port: 14563, ground_station_ip: "192.168.50.101", status_port: 14564, max_datagram_bytes: 1400}
-storage: {directory: "~/ccs_edge_ws/mission"}
-ros: {command_topic: "/epgeneral_task_control/execution_command", feedback_topic: "/epgeneral_task_control/execution_feedback", status_topic: "/epgeneral_task_control/task_status", map_frame: "map"}
-timeouts: {ack_cache_seconds: 60.0, transfer_seconds: 10.0, adapter_feedback_seconds: 2.0, execution_feedback_seconds: 5.0, preparation_retry_seconds: 5.0, utc_tolerance_seconds: 2.0}
-limits: {max_waypoints: 500, max_compressed_bytes: 1048576, max_raw_bytes: 8388608, max_chunks: 2048}
+protocol_id: ccs-task-control-v2
+network:
+  bind_host: 0.0.0.0
+  control_port: 14563
+  ground_station_ip: 192.168.50.101
+  status_port: 14564
+  max_datagram_bytes: 1400
+storage:
+  directory: ~/ccs_edge_ws/mission
+ros:
+  command_topic: /epgeneral_task_control/execution_command
+  feedback_topic: /epgeneral_task_control/execution_feedback
+  status_topic: /epgeneral_task_control/task_status
+  map_frame: map
+timeouts:
+  ack_cache_seconds: 60.0
+  transfer_seconds: 10.0
+  adapter_feedback_seconds: 2.0
+  execution_feedback_seconds: 5.0
+  preparation_retry_seconds: 5.0
+  utc_tolerance_seconds: 2.0
+limits:
+  max_waypoints: 500
+  max_compressed_bytes: 1048576
+  max_raw_bytes: 8388608
+  max_chunks: 2048
 adapter:
-  active_map_state_file: "/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/relocalization.json"
-  navigation_launch_package: "epgeneral_task_control"
-  navigation_launch_file: "wheeltec_ccs_2d_navigation.launch"
-  navigation_map_root: "/home/nrc19/livox_fastlio/maps/ccs_download"
-  navigation_map_yaml: "map.yaml"
-  navigation_action: "/move_base"
-  odom_topic: "/fastlio_odom"
-  navigation_odom_topic: "/odom"
-  zero_velocity_topic: "/nav_cmd_vel"
-  navigation_cmd_vel_topic: "/nav_cmd_vel"
-  navigation_log_directory: "/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/log/navigation"
-  navigation_startup_timeout_seconds: 25.0
+  active_map_state_file: /home/nrc19/ccs_edge_ws/run/state/relocalization.json
+  navigation_launch_package: epgeneral_wheeltec_integration
+  navigation_launch_file: navigation.launch
+  navigation_map_root: /home/nrc19/ccs_edge_ws/maps/download
+  navigation_map_yaml: map.yaml
+  navigation_action: /move_base
+  odom_topic: /fastlio_odom
+  navigation_odom_topic: /odom
+  zero_velocity_topic: /wheeltec_driver/cmd_vel
+  navigation_cmd_vel_topic: /wheeltec_driver/cmd_vel
+  navigation_log_directory: /home/nrc19/ccs_edge_ws/log/navigation
+  navigation_guard_file: /home/nrc19/ccs_edge_ws/run/navigation.lock
+  navigation_startup_timeout_seconds: 360.0
   waypoint_timeout_seconds: 300.0
   pose_timeout_seconds: 2.0
   zero_velocity_hz: 20.0
   zero_velocity_count: 10
   auto_arm_on_schedule: true
   auto_disarm_on_terminal: true
-  emergency_stop_state_file: "/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/task_emergency_stop.json"
-  localization_ok_topic: "/wheeltec_control/localization_ok"
-  control_enabled_topic: "/wheeltec_control/enabled"
-  navigation_reset_service: "/wheeltec_control/reset"
-  clear_costmaps_service: "/move_base/clear_costmaps"
-  clear_costmaps_settle_seconds: 0.30
-  control_enable_service: "/wheeltec_control/enable"
-  control_stop_service: "/wheeltec_control/stop"
-  control_heartbeat_topic: "/wheeltec_driver/control_heartbeat"
-  control_heartbeat_hz: 10.0
+  emergency_stop_state_file: /home/nrc19/ccs_edge_ws/run/state/task_emergency_stop.json
+  localization_ok_topic: /wheeltec_control/localization_ok
+  control_enabled_topic: /wheeltec_control/enabled
+  navigation_reset_service: /wheeltec_control/reset
+  clear_costmaps_service: /move_base/clear_costmaps
+  clear_costmaps_settle_seconds: 0.3
+  control_enable_service: /wheeltec_control/enable
+  control_stop_service: /wheeltec_control/stop
   control_service_timeout_seconds: 5.0
   control_state_timeout_seconds: 1.0
   reset_control_on_emergency_clear: true
   control_authority:
-    state_file: "/home/nrc19/.ros/ccs_edge_dev_wheeltec_r550p/state/relocalization.json"
-    odom_topic: "/fastlio_odom"
-    localization_ok_topic: "/wheeltec_control/localization_ok"
-    enabled_topic: "/wheeltec_control/enabled"
-    driver_enabled_topic: "/wheeltec_robot/control_enabled"
-    driver_enable_service: "/wheeltec_robot/set_autonomous"
-    driver_stop_service: "/wheeltec_robot/stop"
-    driver_reset_service: "/wheeltec_robot/reset_authority"
-    safety_arm_service: "/wheeltec_safety/arm"
-    safety_stop_service: "/wheeltec_safety/stop"
-    safety_reset_service: "/wheeltec_safety/reset"
+    safety_gate_enabled: false
+    driver_auto_acquire: true
+    driver_odom_topic: /odom
+    state_file: /home/nrc19/ccs_edge_ws/run/state/relocalization.json
+    odom_topic: /fastlio_odom
+    localization_ok_topic: /wheeltec_control/localization_ok
+    enabled_topic: /wheeltec_control/enabled
+    driver_enabled_topic: /wheeltec_robot/control_enabled
+    driver_enable_service: /wheeltec_robot/set_autonomous
+    driver_stop_service: /wheeltec_robot/stop
+    driver_reset_service: /wheeltec_robot/reset_authority
     state_publish_hz: 10.0
     odom_timeout_seconds: 1.0
+  native_map:
+    enabled: true
+    readiness_file: /home/nrc19/ccs_edge_ws/run/state/native_navigation.json

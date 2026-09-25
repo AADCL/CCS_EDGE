@@ -1,0 +1,18 @@
+{
+  "before_count": 7507,
+  "after_count": 7507,
+  "modified": [
+    "devel/lib/fast_lio/fastlio_mapping",
+    "src/FAST_LIO/CMakeLists.txt",
+    "src/livox_ros_driver2/config/MID360_config.json"
+  ],
+  "added": [],
+  "deleted": [],
+  "allowed": [
+    "src/livox_ros_driver2/config/MID360_config.json",
+    "src/FAST_LIO/CMakeLists.txt",
+    "devel/lib/fast_lio/fastlio_mapping"
+  ],
+  "unexpected_modified": [],
+  "verified_after_final_acceptance": true
+}

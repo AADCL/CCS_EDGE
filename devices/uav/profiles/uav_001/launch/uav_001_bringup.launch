@@ -2,6 +2,7 @@
   <arg name="execution_enabled" default="false"/>
   <arg name="mapping_enabled" default="$(arg execution_enabled)"/>
   <arg name="workspace" default="/home/nrc/ccs_edge_ws"/>
+  <arg name="profile_config_dir" default="$(arg workspace)/config/uav_001"/>
   <arg name="log_dir" default="$(arg workspace)/logs"/>
   <include file="$(find ducted_bringup)/launch/base_system.launch"/>
   <node pkg="epgeneral_uav_integration" type="uav_stage_node.py" name="uav_stage_manager" output="screen" required="true">
@@ -18,17 +19,25 @@
   </include>
   <include file="$(find epgeneral_video_srt)/launch/rtsp_srt.launch">
     <arg name="config_dir" value="$(find epgeneral_device_config)/config"/>
+    <arg name="decoder_preload" value="/lib/aarch64-linux-gnu/libgomp.so.1"/>
   </include>
   <include file="$(find epgeneral_map_stream)/launch/epgeneral_map_stream.launch">
+    <arg name="mapping_config_file" value="$(arg profile_config_dir)/map_stream.yaml"/>
+    <arg name="device_config_file" value="$(arg profile_config_dir)/device.yaml"/>
     <arg name="log_dir" value="$(arg log_dir)/map_stream"/>
   </include>
   <include file="$(find epgeneral_relocalization)/launch/epgeneral_relocalization.launch">
+    <arg name="config_file" value="$(arg profile_config_dir)/relocalization.yaml"/>
+    <arg name="device_config_file" value="$(arg profile_config_dir)/device.yaml"/>
     <arg name="log_dir" value="$(arg log_dir)/relocalization"/>
   </include>
-  <include file="$(find epgeneral_task_control)/launch/epgeneral_task_control.launch"/>
+  <include file="$(find epgeneral_task_control)/launch/epgeneral_task_control.launch">
+    <arg name="task_config_file" value="$(arg profile_config_dir)/task_control.yaml"/>
+    <arg name="device_config_file" value="$(arg profile_config_dir)/device.yaml"/>
+  </include>
   <node pkg="epgeneral_uav_integration" type="uav_task_adapter.py" name="uav_task_adapter" output="screen" required="true">
-    <param name="config_file" value="$(find epgeneral_device_config)/config/task_control.yaml"/>
-    <param name="device_config_file" value="$(find epgeneral_device_config)/config/device.yaml"/>
+    <param name="config_file" value="$(arg profile_config_dir)/task_control.yaml"/>
+    <param name="device_config_file" value="$(arg profile_config_dir)/device.yaml"/>
     <param name="execution_enabled" value="$(arg execution_enabled)"/>
   </node>
 </launch>
