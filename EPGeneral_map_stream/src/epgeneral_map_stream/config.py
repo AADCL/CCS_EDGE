@@ -277,7 +277,7 @@ def load_config(mapping_path, device_path):
             os.path.dirname(artifacts["source_pcd_path"]), "map.ot")), "artifacts.source_ot_path"),
         "schema_version": 6,
         "protocol_id": protocol_id,
-        "capability_version": "0.14.0",
+        "capability_version": "0.14.1",
         "integration_backend": backend,
         "device_id": device_id,
         "device_ip": device_ip,
@@ -412,6 +412,9 @@ def load_config(mapping_path, device_path):
         "command_output_bytes": _positive_integer(
             limits.get("command_output_bytes"), "limits.command_output_bytes",
             256, 1024 * 1024),
+        "max_preview_bytes_per_second": _positive_integer(
+            limits.get("max_preview_bytes_per_second", 500000),
+            "limits.max_preview_bytes_per_second", 1024, 1024 ** 3),
         "max_preview_fragment_bytes": _positive_integer(
             limits.get("max_preview_fragment_bytes"),
             "limits.max_preview_fragment_bytes", 1024, 1024 ** 3),

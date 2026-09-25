@@ -19,6 +19,8 @@ from urllib.parse import parse_qs, urlsplit
 import yaml
 import numpy as np
 
+from .preview import PreviewByteBudget, pcd_header
+
 
 class ArtifactError(RuntimeError):
     pass
@@ -72,11 +74,7 @@ def write_binary_pcd(path, points):
     array = np.ascontiguousarray(points, dtype="<f4")
     if array.ndim != 2 or array.shape[1] != 3 or not len(array):
         raise ArtifactError("preview PCD points are invalid")
-    header = (
-        "# .PCD v0.7\nVERSION 0.7\nFIELDS x y z\nSIZE 4 4 4\n"
-        "TYPE F F F\nCOUNT 1 1 1\nWIDTH %d\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
-        "POINTS %d\nDATA binary\n" % (len(array), len(array))
-    ).encode("ascii")
+    header = pcd_header(len(array))
     temporary = path + ".tmp.%s" % os.getpid()
     with io.open(temporary, "wb") as stream:
         stream.write(header)
@@ -483,10 +481,11 @@ class _ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
 
 
 class ArtifactHttpServer(object):
-    def __init__(self, bind_host, port, clock=time.time):
+    def __init__(self, bind_host, port, clock=time.time, preview_bytes_per_second=500000):
         self.clock = clock
         self.lock = threading.RLock()
         self.entries = {}
+        self.preview_budget = PreviewByteBudget(preview_bytes_per_second)
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -519,32 +518,32 @@ class ArtifactHttpServer(object):
             self.entries[token] = {
                 "path": path, "expires": expires, "route": route,
                 "content_type": content_type, "delete_on_expiry": delete_on_expiry,
+                "readers": 0, "delete_pending": False,
             }
         return token, datetime.fromtimestamp(expires, timezone.utc).isoformat()
+
+    @staticmethod
+    def _delete_entry(entry):
+        try:
+            os.unlink(entry["path"])
+        except OSError:
+            pass
 
     def unregister(self, token, delete=False):
         with self.lock:
             entry = self.entries.pop(token, None)
-        if delete and entry is not None:
-            try:
-                os.unlink(entry["path"])
-            except OSError:
-                pass
+            if entry is not None and delete:
+                entry["delete_pending"] = True
+                if not entry["readers"]:
+                    self._delete_entry(entry)
 
     def cleanup(self):
-        now = self.clock()
-        expired_paths = []
         with self.lock:
-            for token in list(self.entries):
-                if self.entries[token]["expires"] <= now:
-                    entry = self.entries.pop(token)
-                    if entry.get("delete_on_expiry", True):
-                        expired_paths.append(entry["path"])
-        for path in set(expired_paths):
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            expired = [(token, entry.get("delete_on_expiry", True))
+                       for token, entry in self.entries.items()
+                       if entry["expires"] <= self.clock()]
+        for token, delete in expired:
+            self.unregister(token, delete=delete)
 
     def _serve(self, handler, head_only=False):
         parsed = urlsplit(handler.path)
@@ -558,12 +557,31 @@ class ArtifactHttpServer(object):
                     if (hmac.compare_digest(token, requested)
                             and candidate["expires"] > self.clock()
                             and candidate.get("route") == parsed.path):
+                        try:
+                            stream = io.open(candidate["path"], "rb")
+                        except OSError:
+                            break
                         entry = candidate
+                        entry["readers"] += 1
                         break
-        if entry is None or not os.path.isfile(entry["path"]):
+        if entry is None:
             handler.send_error(404)
             return
-        size = os.path.getsize(entry["path"])
+        try:
+            if entry["route"].startswith("/mapping/preview/"):
+                handler.connection.settimeout(2.0)
+            self._serve_open_file(handler, entry, stream, head_only)
+        except (OSError, ConnectionError):
+            pass  # Cancelled previews must not print a server traceback.
+        finally:
+            stream.close()
+            with self.lock:
+                entry["readers"] -= 1
+                if entry["delete_pending"] and not entry["readers"]:
+                    self._delete_entry(entry)
+
+    def _serve_open_file(self, handler, entry, stream, head_only):
+        size = os.fstat(stream.fileno()).st_size
         start, end, partial = 0, size - 1, False
         range_header = handler.headers.get("Range")
         if range_header:
@@ -598,17 +616,21 @@ class ArtifactHttpServer(object):
         handler.end_headers()
         if head_only:
             return
-        with io.open(entry["path"], "rb") as stream:
-            stream.seek(start)
-            remaining = length
-            while remaining:
-                chunk = stream.read(min(1024 * 1024, remaining))
-                if not chunk:
-                    break
+        stream.seek(start)
+        remaining = length
+        preview = entry["route"].startswith("/mapping/preview/")
+        while remaining:
+            chunk = stream.read(min(16384, remaining, self.preview_budget.maximum))
+            if not chunk:
+                break
+            if preview:
+                self.preview_budget.write(handler.wfile, chunk)
+            else:
                 handler.wfile.write(chunk)
-                remaining -= len(chunk)
+            remaining -= len(chunk)
 
     def close(self):
+        self.preview_budget.close()
         self.server.shutdown()
         self.server.server_close()
         if self.thread is not None and self.thread.is_alive():

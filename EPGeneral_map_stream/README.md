@@ -1,10 +1,10 @@
 # epgeneral_map_stream
 
-配套 CCS 0.23.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
+配套 CCS 0.29.1：[完整使用手册](../documents/USER_MANUAL.md#documents-user-manual-md) · [设备内接口与参数](../documents/INTERFACE_REFERENCE.md#documents-interface-reference-md)。包级 launch 默认读取共享配置包；一键脚本显式读取工作空间 `config/<profile>`，修改后需重启。
 
-<!-- epgeneral_map_stream_VERSION: 0.14.0 -->
+<!-- epgeneral_map_stream_VERSION: 0.14.1 -->
 
-版本：`v0.14.0`。运行配置统一由 `epgeneral_device_config/config/map_stream.yaml` 提供。
+版本：`v0.14.1`。运行配置统一由 `epgeneral_device_config/config/map_stream.yaml` 提供。
 
 占据图成果支持 PGM/YAML、OT 或两者，原始 PCD 仍为必需。详见 [OT 配置、兼容性与会话隔离](../documents/OCTOMAP.md)。
 
@@ -157,3 +157,7 @@ python3 scripts/check_version.py
 
 包面向可信局域网，不提供 TLS。HTTP 令牌是短期随机访问能力，不能替代网络
 隔离。目标设备必须使用 NTP/chrony 与平台同步 UTC。
+
+## 实时建图预览修复（2026-09-25）
+
+默认 10 cm 体素、1 Hz，每台设备预览正文最多 500,000 字节/滚动秒；拥塞时优先最新窗口，完整地图成果独立保存。配置、ACK 释放语义和升级说明见 [实时预览契约](../documents/REALTIME_PREVIEW.md)。

@@ -86,7 +86,7 @@ preprocess:
   preview_transport: "pcd_fragment_http"
   min_range_m: 0.30
   max_range_m: 100.0
-  voxel_size_m: 0.05
+  voxel_size_m: 0.10
 
 timeouts:
   prepare_probe_timeout_seconds: 1.5
@@ -98,15 +98,16 @@ timeouts:
   artifact_stable_polls: 2
 
 limits:
+  max_preview_bytes_per_second: 500000
   max_frame_points: 200000
   max_window_points: 1000000
   max_decompressed_bytes: 2400000
   max_artifact_bytes: 4294967296
   min_free_bytes: 5368709120
   command_output_bytes: 16384
-  max_preview_fragment_bytes: 8388608
-  max_pending_preview_fragments: 4
-  max_unacked_preview_fragments: 16
+  max_preview_fragment_bytes: 500000
+  max_pending_preview_fragments: 1
+  max_unacked_preview_fragments: 4
 
 artifacts:
   workspace_root: "/home/nvidia/.ros/ccs_edge_dev/map_stream"

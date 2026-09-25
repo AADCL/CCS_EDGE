@@ -1,0 +1,14 @@
+[
+  {
+    "suite": "EPGeneral_map_stream/test",
+    "exit_code": 0,
+    "seconds": 8.23,
+    "output": "----------------------------------------------------------------------\nRan 104 tests in 7.617s\n\nOK (skipped=6)\n"
+  },
+  {
+    "suite": "tests",
+    "exit_code": 0,
+    "seconds": 21.14,
+    "output": "----------------------------------------------------------------------\nRan 135 tests in 20.589s\n\nOK (skipped=18)\n"
+  }
+]

@@ -63,9 +63,9 @@ integrations:
     metadata_filename: "metadata.json"
 
 sync: {tolerance_seconds: 0.05, pose_buffer_size: 100, preview_transform_timeout_seconds: 0.20}
-preprocess: {sample_window_seconds: 1.0, preview_transport: "pcd_fragment_http", min_range_m: 0.30, max_range_m: 100.0, voxel_size_m: 0.05}
+preprocess: {sample_window_seconds: 1.0, preview_transport: "pcd_fragment_http", min_range_m: 0.30, max_range_m: 100.0, voxel_size_m: 0.10}
 timeouts: {prepare_probe_timeout_seconds: 1.5, integration_check_timeout_seconds: 8.0, ready_timeout_seconds: 60.0, input_timeout_seconds: 3.0, command_cache_seconds: 60.0, artifact_poll_seconds: 0.5, artifact_stable_polls: 2}
-limits: {max_frame_points: 200000, max_window_points: 1000000, max_decompressed_bytes: 2400000, max_artifact_bytes: 4294967296, min_free_bytes: 1073741824, command_output_bytes: 16384, max_preview_fragment_bytes: 8388608, max_pending_preview_fragments: 4, max_unacked_preview_fragments: 16}
+limits: {max_preview_bytes_per_second: 500000, max_frame_points: 200000, max_window_points: 1000000, max_decompressed_bytes: 2400000, max_artifact_bytes: 4294967296, min_free_bytes: 1073741824, command_output_bytes: 16384, max_preview_fragment_bytes: 500000, max_pending_preview_fragments: 1, max_unacked_preview_fragments: 4}
 artifacts:
   frame: "map"
   workspace_root: "/home/bitcq/.ros/ccs_edge_dev_ground_air_agv/map_stream"

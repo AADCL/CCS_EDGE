@@ -4,7 +4,7 @@
 
 端侧公共配置的唯一入口。`config/` 保存设备身份以及 MQTT、UDP 遥测、视频、建图、重定位和任务配置；其他功能包不再携带运行 YAML。`device.yaml` 中的设备 ID 和 IP 必须与地面站 `config/devices.json` 对应记录完全一致。
 
-当前包版本：`v0.3.0`。提供 MQTT 与 UDP 通用配置模板，UDP profile 升级配置 schema 2，配套 epgeneral_mqtav 0.5.0 / epgeneral_udp_telemetry 0.4.0 的显式目录入口。建图配置增加同目录 OT 输出与可选占据图导出器，见 [OT 接口](../documents/OCTOMAP.md)；未配置时保持现有设备生成流程。
+当前包版本：`v0.3.1`。提供 MQTT 与 UDP 通用配置模板，UDP profile 升级配置 schema 2，配套 epgeneral_mqtav 0.5.0 / epgeneral_udp_telemetry 0.4.0 的显式目录入口。建图配置增加同目录 OT 输出与可选占据图导出器，见 [OT 接口](../documents/OCTOMAP.md)；未配置时保持现有设备生成流程。
 
 多数单包默认入口使用本目录；MQTT、UDP、视频需显式指定本目录或设备 profile 配置目录。设备一键脚本使用 `<CCS工作空间>/config/<profile>`。部署前将 profile 同名 YAML 安装到实际入口。普通设备安装本包与六个业务包，Ground-Air 另加专用控制包及 ground_air_msgs；deploy/documents 不进入 catkin src。
 
@@ -13,3 +13,7 @@ MQTT 通用模板位于 `config/templates/mqtav_generic/`，只作起点，部�
 UDP 通用模板位于 `config/templates/udp_generic/`，仅作起点；设备身份使用 schema_version 1，UDP 配置使用 schema_version 2，UDP 线协议仍为 schema 1。共享与八份 profile 的描述符哈希保留，来源差异由 YAML 指定。详见 [UDP 通用化与迁移](../documents/UDP_TELEMETRY_GENERIC.md)。
 
 视频 schema 2 和通用模板位于 `config/templates/video_generic/`；输入模式、RTSP 地址、驱动 launch/参数及硬件预加载集中配置，见 [视频通用化与迁移](../documents/VIDEO_SRT_GENERIC.md)。`enabled` 为实际启停开关。
+
+## 实时建图预览修复（2026-09-25）
+
+默认 10 cm 体素、1 Hz，每台设备预览正文最多 500,000 字节/滚动秒；拥塞时优先最新窗口，完整地图成果独立保存。配置、ACK 释放语义和升级说明见 [实时预览契约](../documents/REALTIME_PREVIEW.md)。
