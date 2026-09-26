@@ -7,7 +7,7 @@
 <p align="center">设备接入 · 实时遥测 · 视频传输 · 联合建图 · 重定位 · 任务执行</p>
 
 <p align="center">
-  <img alt="兼容 CCS 0.25.0" src="https://img.shields.io/badge/CCS-0.25.0-1677ff">
+  <img alt="兼容 CCS 0.29.1" src="https://img.shields.io/badge/CCS-0.29.1-1677ff">
   <img alt="ROS Noetic" src="https://img.shields.io/badge/ROS-Noetic-22314E">
   <img alt="Ubuntu 20.04" src="https://img.shields.io/badge/Ubuntu-20.04-E95420">
   <img alt="Python 3" src="https://img.shields.io/badge/Python-3-3776AB">
@@ -143,11 +143,11 @@ rospack find epgeneral_device_config
 
 | 包文档 / 目录 | ROS 包名 | 版本 | 职责 |
 | --- | --- | --- | --- |
-| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.3.0 | 设备身份与共享配置 |
+| [EPGeneral_device_config](EPGeneral_device_config/README.md) | `epgeneral_device_config` | 0.3.1 | 设备身份与共享配置 |
 | [epgeneral_mqtav](epgeneral_mqtav/README.md) | `epgeneral_mqtav` | 0.5.0 | 配置驱动 ROS 健康状态 MQTT 上报 |
 | [EPGeneral_udp_telemetry](EPGeneral_udp_telemetry/README.md) | `epgeneral_udp_telemetry` | 0.4.0 | UDP 遥测与状态描述 |
 | [EPGeneral_video_srt](EPGeneral_video_srt/README.md) | `epgeneral_video_srt` | 0.2.0 | 相机接入与 SRT 视频传输 |
-| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.0 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
+| [EPGeneral_map_stream](EPGeneral_map_stream/README.md) | `epgeneral_map_stream` | 0.14.1 | 地图传输与建图流程，支持 PGM/YAML 或 OT |
 | [EPGeneral_relocalization](EPGeneral_relocalization/README.md) | `epgeneral_relocalization` | 0.6.0 | 重定位与定位状态上报 |
 | [EPGeneral_task_control](EPGeneral_task_control/README.md) | `epgeneral_task_control` | 0.6.4 | 任务与导航执行协调 |
 | [EPGeneral_go2_integration](devices/go2/EPGeneral_go2_integration/README.md) | `epgeneral_go2_integration` | 0.1.3 | Go2 原生控制、状态与流程适配 |
@@ -188,7 +188,7 @@ CCS_EDGE/
 - 先准备设备底盘、相机、雷达、定位与导航等 underlay；各机型所需包见部署指南。
 - 按 profile 核验设备身份、通信地址、话题、TF、地图路径及外部命令。
 - 配置和日志目录需具备相应用户的读写权限；多设备同步任务需要统一授时。
-- 地面站兼容基线为 CCS 0.25.0，地面站与各 ROS 包的版本分别维护。
+- 地面站兼容基线为 CCS 0.29.1，地面站与各 ROS 包的版本分别维护。
 
 ## 文档导航
 
@@ -240,3 +240,7 @@ CCS_EDGE 使用 [Apache License 2.0](LICENSE)。各功能包的独立版本和�
 重定位包支持可选的可信区域 XML 接收。默认开启接收，缺少文件不影响定位；下发整组替换，空集合清空。使用、配置和协议见 [可信区域](documents/INTERFACE_REFERENCE.md#可选可信区域接收)。
 
 视频包 0.2.0 统一三种输入，配置由共享包管理，见 [通用视频迁移指南](documents/VIDEO_SRT_GENERIC.md)。
+
+## 实时建图预览修复（2026-09-25）
+
+默认 10 cm 体素、1 Hz，每台设备预览正文最多 500,000 字节/滚动秒；拥塞时优先最新窗口，完整地图成果独立保存。配置、ACK 释放语义和升级说明见 [实时预览契约](documents/REALTIME_PREVIEW.md)。

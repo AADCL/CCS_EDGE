@@ -22,6 +22,7 @@ from .processing import (
     transform_points,
 )
 from .protocol import ProtocolError, decode_command, encode_envelope
+from .preview import bounded_preview
 
 
 ERROR_CODES = {
@@ -79,6 +80,7 @@ class MappingSession(object):
         self.window_started_at = None
         self.pending_clouds = []
         self.fragment_cache = {}
+        self.last_preview_published_at = None
         self.accumulator_pcd_baseline = None
         self.mapping_started_at_ns = 0
         self.map_name = ""
@@ -102,7 +104,7 @@ class RosMapStreamNode(object):
         self.control_thread = None
         self.generation_thread = None
         self.preview_thread = None
-        self.preview_queue = queue.Queue(maxsize=config["max_pending_preview_fragments"])
+        self.preview_queue = queue.Queue(maxsize=1)
         self.watchdog_timer = None
         self.running = threading.Event()
         self.lock = threading.RLock()
@@ -162,7 +164,8 @@ class RosMapStreamNode(object):
             udp_socket.settimeout(0.2)
             if self.artifact_server is None:
                 self.artifact_server = ArtifactHttpServer(
-                    self.config["http_bind_host"], self.config["http_port"])
+                    self.config["http_bind_host"], self.config["http_port"],
+                    preview_bytes_per_second=self.config.get("max_preview_bytes_per_second", 500000))
             self.artifact_server.start()
         except (OSError, ArtifactError):
             udp_socket.close()
@@ -984,13 +987,11 @@ class RosMapStreamNode(object):
                 return
             if session.window_started_at is None:
                 session.window_started_at = received_at
-            remaining = self.config["max_window_points"] - session.window_points
-            if remaining > 0:
-                points = points[:remaining]
-                session.scans.append((points, pose.transform, stamp_ns, preview_from_map))
-                session.window_points += len(points)
-            flush = (received_at - session.window_started_at >= self.config["sample_window_seconds"]
-                     or session.window_points >= self.config["max_window_points"])
+            session.scans.append((points, pose.transform, stamp_ns, preview_from_map))
+            session.window_points += len(points)
+            while len(session.scans) > 1 and session.window_points > self.config["max_window_points"]:
+                session.window_points -= len(session.scans.pop(0)[0])
+            flush = received_at - session.window_started_at >= max(1.0, self.config["sample_window_seconds"])
         if flush:
             self._flush_window(session, token)
 
@@ -1006,16 +1007,24 @@ class RosMapStreamNode(object):
         with self.lock:
             if self.session is not session or session.token != token or session.state != "mapping":
                 return
+            if (session.window_started_at is None or not session.scans
+                    or self.clock() - session.window_started_at < max(1.0, self.config["sample_window_seconds"])):
+                return
             scans = session.scans
             session.scans = []
             session.window_points = 0
             session.window_started_at = None
-        try:
-            self.preview_queue.put_nowait((session, token, scans))
-        except queue.Full:
-            self._log_warn_throttle(
-                5.0, "preview PCD queue is full; dropping one preview window",
-                key="preview_queue_full")
+            # Producers hold the session lock; the consumer may take the item concurrently.
+            while True:
+                try:
+                    self.preview_queue.put_nowait((session, token, scans))
+                    break
+                except queue.Full:
+                    try:
+                        self.preview_queue.get_nowait()
+                        self.preview_queue.task_done()
+                    except queue.Empty:
+                        pass
 
     def _preview_loop(self):
         while self.running.is_set() or not self.preview_queue.empty():
@@ -1024,6 +1033,22 @@ class RosMapStreamNode(object):
             except queue.Empty:
                 continue
             try:
+                while (session.last_preview_published_at is not None
+                       and self.clock() - session.last_preview_published_at < max(1.0, self.config["sample_window_seconds"])):
+                    if not self.running.is_set() or self.session is not session or session.state != "mapping":
+                        break
+                    time.sleep(0.02)
+                # Never replay windows queued while the generator was busy.
+                while True:
+                    try:
+                        newer = self.preview_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    self.preview_queue.task_done()
+                    session, token, scans = newer
+                with self.lock:
+                    if self.session is not session or session.token != token or session.state != "mapping":
+                        continue
                 points, reference_pose = aggregate_window(
                     scans, self.config["body_from_sensor"], self.config["voxel_size_m"],
                     self.config["max_frame_points"])
@@ -1033,6 +1058,12 @@ class RosMapStreamNode(object):
                     points, reference_pose, self.config["body_from_sensor"])
                 preview_from_map = scans[-1][3]
                 points = transform_points(points, preview_from_map)
+                points = bounded_preview(
+                    points, self.config["voxel_size_m"],
+                    min(self.config["max_preview_fragment_bytes"],
+                        self.config.get("max_preview_bytes_per_second", 500000)))
+                if not len(points):
+                    continue
                 with self.lock:
                     if self.session is not session or session.token != token or session.state != "mapping":
                         continue
@@ -1074,12 +1105,13 @@ class RosMapStreamNode(object):
                         "payload": payload, "token": http_token, "attempts": 1,
                         "last_sent": self.clock(),
                     }
-                    while len(session.fragment_cache) > self.config["max_unacked_preview_fragments"]:
+                    while len(session.fragment_cache) > min(4, self.config["max_unacked_preview_fragments"]):
                         old_id = sorted(session.fragment_cache)[0]
                         old = session.fragment_cache.pop(old_id)
                         self.artifact_server.unregister(old["token"], delete=True)
-                        self._log_warn("discarded unacknowledged preview fragment %d", old_id)
+                        self._log_warn_throttle(5.0, "discarded stale preview fragments", key="preview_superseded")
                 self._send_session_message(session, "cloud_fragment_ready", payload)
+                session.last_preview_published_at = self.clock()
             except (ArtifactError, OSError, ProcessingError, ProtocolError, ValueError) as exc:
                 self._log_error("preview PCD generation failed: %s", exc)
             finally:
@@ -1100,7 +1132,7 @@ class RosMapStreamNode(object):
                     self.state = "standby"
                     session = None
             if session is not None and session.state == "mapping":
-                for entry in session.fragment_cache.values():
+                for entry in [session.fragment_cache[max(session.fragment_cache)]] if session.fragment_cache else []:
                     if (entry["attempts"] < 3 and now - entry["last_sent"] >= 1.0):
                         entry["attempts"] += 1
                         entry["last_sent"] = now

@@ -1,6 +1,6 @@
 # 端侧使用手册
 
-## map_stream 0.14.0 八叉树成果
+## map_stream 0.14.1 八叉树成果
 
 可接入设备已有功能包输出标准 .ot，与原始 PCD 保存在同一会话地图目录。PGM/YAML 与 OT 至少提供一类；OT 单独提供时无需 YAML。导出命令及实际源文件名由配置指定，接入说明见 [OT 配置与兼容性](OCTOMAP.md)。
 
@@ -860,3 +860,7 @@ UGV_004 使用现有 `EPGeneral_relocalization` 0.6.0 内的 `ccs_wheeltec_local
 Gemini 336L 通过已安装的 `orbbec_camera/gemini_330_series.launch`（显式设置 RGB/深度 640×480、30 FPS，驱动旋转为 0） 启动 RGB/深度，不启动识别算法。根脚本监督相机与视频：检测新鲜 640×480 RGB/深度后启动 SRT 9000、30 FPS、180° 旋转。可复用经出图检查的外部相机，仅停止自己创建的子进程；缺失、超时、异常退出记为 `CAMERA_VIDEO_DEGRADED`，不停止其他服务。根脚本的重复启动由文件锁拒绝。优先使用根脚本；组合 bringup launch 仅用于手动集成，不提供根脚本的所有权/出图监督。
 
 UGV_004 配置 `timeouts.preparation_retry_on_failure: false`。准备保留 25 秒超时，检查健康与完整 TF；失败后保存状态、错误原因和导航日志位置，查询、迟到反馈和进程重启不会自动恢复准备。重新下发完整任务才开启新准备。日志位于 `logs/navigation/navigation-<map_id>.log`。验收只发送 PREPARE，不发送 SCHEDULE 或 move_base 目标。
+
+## 实时建图预览修复（2026-09-25）
+
+默认 10 cm 体素、1 Hz，每台设备预览正文最多 500,000 字节/滚动秒；拥塞时优先最新窗口，完整地图成果独立保存。配置、ACK 释放语义和升级说明见 [实时预览契约](REALTIME_PREVIEW.md)。
